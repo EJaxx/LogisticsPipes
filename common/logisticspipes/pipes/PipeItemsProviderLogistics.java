@@ -38,12 +38,15 @@ import logisticspipes.interfaces.IInventoryUtil;
 import logisticspipes.interfaces.IOrderManagerContentReceiver;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IFilter;
+import logisticspipes.interfaces.routing.IItemSpaceControl;
 import logisticspipes.interfaces.routing.IProvideItems;
 import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.logistics.LogisticsManager;
 import logisticspipes.logisticspipes.ExtractionMode;
 import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.logisticspipes.IRoutedItem.TransportMode;
+import logisticspipes.modules.CrafterBarrier;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.modules.ModuleProvider;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.GuiIDs;
@@ -146,7 +149,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 		return 1;
 	}
 
-	private int sendStack(ItemIdentifierStack stack, int maxCount, int destination, IAdditionalTargetInformation info) {
+	private int sendStack(ItemIdentifierStack stack, int maxCount, int destination, IAdditionalTargetInformation info, ModuleCrafter destModule) {
 		ItemIdentifier item = stack.getItem();
 
 		final Iterator<Pair<IInventoryUtil, EnumFacing>> iterator = new WorldCoordinatesWrapper(container)
@@ -175,6 +178,10 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 			}
 			SinkReply reply = LogisticsManager.canSink(dRtr, null, true, stack.getItem(), null, true, false);
 			boolean defersend = false;
+			if (reply == null && (dRtr.getPipe() instanceof IItemSpaceControl)) {// these are aware
+				_orderManager.deferSend();
+				return 0;
+			}
 			if (reply != null) {// some pipes are not aware of the space in the adjacent inventory, so they return null
 				if (reply.maxNumberOfItems < wanted) {
 					wanted = reply.maxNumberOfItems;
@@ -195,11 +202,15 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 			int sent = removed.getCount();
 			useEnergy(sent * neededEnergy());
 
+			System.err.println("ProviderSent "+ItemIdentifierStack.getFromStack(removed)+" to "+destination);
 			IRoutedItem routedItem = SimpleServiceLocator.routedItemHelper.createNewTravelItem(removed);
 			routedItem.setDestination(destination);
 			routedItem.setTransportMode(TransportMode.Active);
 			routedItem.setAdditionalTargetInformation(info);
 			super.queueRoutedItem(routedItem, next.getValue2());
+
+			if (destModule != null)
+				destModule.myBarrierRecipe.enterBarrier(routedItem);
 
 			_orderManager.sendSuccessfull(sent, defersend, routedItem);
 			return sent;
@@ -250,7 +261,15 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 				firstOrder = order;
 			}
 			order = _orderManager.peekAtTopRequest(ResourceType.PROVIDER);
-			int sent = sendStack(order.getResource().stack, itemsleft, order.getRouter().getSimpleID(), order.getInformation());
+
+			CrafterBarrier.LogisticsModuleValue destModule = new CrafterBarrier.LogisticsModuleValue();
+			int maxToSend = CrafterBarrier.maxSend(order, itemsleft, destModule, false);
+			if (maxToSend <= 0) {
+				_orderManager.deferSend();
+				continue;
+			}
+
+			int sent = sendStack(order.getResource().stack, maxToSend, order.getRouter().getSimpleID(), order.getInformation(), destModule.value);
 			if (sent < 0) {
 				break;
 			}

@@ -3,6 +3,7 @@ package logisticspipes.modules;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -11,6 +12,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.DelayQueue;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
 import net.minecraft.block.state.IBlockState;
@@ -100,9 +102,11 @@ import logisticspipes.routing.LogisticsPromise;
 import logisticspipes.routing.order.IOrderInfoProvider.ResourceType;
 import logisticspipes.routing.order.LogisticsItemOrder;
 import logisticspipes.routing.pathfinder.IPipeInformationProvider.ConnectionPipeType;
+import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.utils.CacheHolder.CacheTypes;
 import logisticspipes.utils.DelayedGeneric;
 import logisticspipes.utils.FluidIdentifier;
+import logisticspipes.utils.InventoryUtil;
 import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.SinkReply;
 import logisticspipes.utils.SinkReply.BufferMode;
@@ -146,6 +150,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 	public ClientSideSatelliteNames clientSideSatelliteNames = new ClientSideSatelliteNames();
 	private UpgradeSatelliteFromIDs updateSatelliteFromIDs = null;
+	public final CrafterBarrier.Recipe myBarrierRecipe = new CrafterBarrier.Recipe(_dummyInventory);
 
 	public ModuleCrafter() {
 		for (int i = 0; i < fuzzyCraftingFlagArray.length; i++) {
@@ -161,6 +166,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		for (int i = 0; i < fuzzyCraftingFlagArray.length; i++) {
 			fuzzyCraftingFlagArray[i] = new DictResource(null, null);
 		}
+		_dummyInventory.addListener(myBarrierRecipe);
 	}
 
 	/**
@@ -175,7 +181,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	@Override
 	public void registerPosition(ModulePositionType slot, int positionInt) {
 		super.registerPosition(slot, positionInt);
-		_sinkReply = new SinkReply(FixedPriority.ItemSink, 0, true, false, 1, 0, new ChassiTargetInformation(getPositionInt()));
+		_sinkReply = new SinkReply(FixedPriority.ItemSink, 0, false, false, 1, 0, new ChassiTargetInformation(getPositionInt()));
 	}
 
 	@Override
@@ -184,33 +190,66 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		if (bestPriority > _sinkReply.fixedPriority.ordinal() || (bestPriority == _sinkReply.fixedPriority.ordinal() && bestCustomPriority >= _sinkReply.customPriority)) {
 			return null;
 		}
-		return new SinkReply(_sinkReply, spaceFor(item, includeInTransit), areAllOrderesToBuffer() ? BufferMode.DESTINATION_BUFFERED : BufferMode.NONE);
+		int count = spaceFor(item, includeInTransit);
+		if (count > 0)
+			return new SinkReply(_sinkReply, count, areAllOrderesToBuffer() ? BufferMode.DESTINATION_BUFFERED : BufferMode.NONE);
+		return null;
+		//				getUpgradeManager() != null && getUpgradeManager().hasPatternUpgrade());
 	}
 
 	protected int spaceFor(ItemIdentifier item, boolean includeInTransit) {
 		Pair<String, ItemIdentifier> key = new Pair<>("spaceFor", item);
-		Object cache = _service.getCacheHolder().getCacheFor(CacheTypes.Inventory, key);
-		if (cache != null) {
-			int count = (Integer) cache;
-			if (includeInTransit) {
-				count -= _service.countOnRoute(item);
+		if (getUpgradeManager() != null && !getUpgradeManager().hasPatternUpgrade()) {
+			Object cache = _service.getCacheHolder().getCacheFor(CacheTypes.Inventory, key);
+			if (cache != null && (getUpgradeManager() != null && !getUpgradeManager().hasPatternUpgrade())) {
+				int count = (Integer) cache;
+				if (includeInTransit) {
+					count -= _service.countOnRoute(item);
+				}
+				return count;
 			}
-			return count;
 		}
 		WorldCoordinatesWrapper worldCoordinates = new WorldCoordinatesWrapper(getWorld(), _service.getX(), _service.getY(), _service.getZ());
 
-		int count = worldCoordinates
+		int _toSlot = -1;
+		for (int i = 0; i < Math.min(_dummyInventory.getSizeInventory(), 9); i++) {
+			ItemIdentifierStack itemA = _dummyInventory.getIDStackInSlot(i);
+			if (itemA != null && itemA.getItem().equals(item)) {
+				_toSlot = i;
+				break;
+			}
+		}
+		if (_toSlot < 0)
+			return 0; // not my item
+		final int toSlot = _toSlot;
+
+		int count;
+		Stream<IInventoryUtil> invStream = worldCoordinates
+				// int count = worldCoordinates
 				.connectedTileEntities(ConnectionPipeType.ITEM)
 				.map(neighbor -> neighbor.sneakyInsertion().from(getUpgradeManager()))
 				.filter(NeighborTileEntity::isItemHandler)
-				.map(NeighborTileEntity::getUtilForItemHandler)
-				.map(invUtil -> invUtil.roomForItem(item, 9999)) // ToDo: Magic number
-				.reduce(Integer::sum).orElse(0);
+				.map(NeighborTileEntity::getUtilForItemHandler);
+		if (getUpgradeManager().hasPatternUpgrade())
+			count = invStream
+					.map(invUtil -> ((InventoryUtil) invUtil).roomForItemToSlot(item, toSlot))
+					.reduce(Integer::sum).orElse(0);
+		else
+			count = invStream
+					.map(invUtil -> invUtil.roomForItem(item, 9999)) // ToDo: Magic number
+					.reduce(Integer::sum).orElse(0);
 
 		_service.getCacheHolder().setCache(CacheTypes.Inventory, key, count);
 		if (includeInTransit) {
-			count -= _service.countOnRoute(item);
+			if (getUpgradeManager().hasPatternUpgrade())
+				count -= _service.countOnRoute(item);
+			else
+				count -= _service.getRouter().getPipe().inTransitToMe()
+						.filter(it -> ((CraftingChassieInformation) it.targetInfo).getModuleSlot() == positionInt)
+						.filter(it -> ((CraftingChassieInformation) it.targetInfo).getCraftingSlot() == toSlot)
+						.mapToInt(it -> it.getItem().getStackSize()).sum();
 		}
+		// System.err.print("spaceFor:" + item.toString() + ", hasPatternUpgrade:" + getUpgradeManager().hasPatternUpgrade() + ", count: " + count + "\n");
 		return count;
 	}
 
@@ -226,6 +265,15 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	public LogisticsModule getSubModule(int slot) {
 		return null;
 	}
+
+	//	@Override
+	//	public List<String> getClientInformation() {
+	//		List<String> list = new ArrayList<>();
+	//		list.add("Ingredients: ");
+	//		list.add("<inventory>");
+	//		list.add("<that>");
+	//		return list;
+	//	}
 
 	public void onAllowedRemoval() {}
 
@@ -249,6 +297,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 	@Override
 	public void tick() {
+		myBarrierRecipe.parent = getRouter().getPipe().crafterBarrier;
 		enabledUpdateEntity();
 		if (updateSatelliteFromIDs != null && _service.isNthTick(100)) {
 			if (updateSatelliteFromIDs.advancedSatelliteIdArray != null) {
@@ -336,8 +385,17 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info) {}
 
 	@Override
+	public void itemArrived(LPTravelingItem.LPTravelingItemServer traveler) {
+		{ // if (getUpgradeManager().hasPatternUpgrade())
+			myBarrierRecipe.itemArrived(traveler);
+		}
+	}
+
+	@Override
 	public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info) {
+		System.err.println("ModuleCrafter.itemLost " + item + ", panic !!!!!");
 		_lostItems.add(new DelayedGeneric<>(new Pair<>(item, info), 5000));
+		// myBarrier.itemWasLost(traveler);
 	}
 
 	@Override
@@ -547,7 +605,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			} else {
 				req = new ItemResource(resourceStack, target[i]);
 			}
-			template.addRequirement(req, new CraftingChassieInformation(i, getPositionInt()));
+			template.addRequirement(req, new CraftingChassieInformation(i, getPositionInt(), null));
 		}
 
 		int liquidCrafter = getUpgradeManager().getFluidCrafter();
@@ -1026,6 +1084,100 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		player.inventory.currentItem = savedEquipped;
 	}
 
+	public void feedOrders(ItemStack extracted, EnumFacing direction) {
+		LogisticsItemOrder startOrder = null;
+		LogisticsItemOrder nextOrder = null;
+		while (!extracted.isEmpty() && startOrder != (nextOrder = _service.getItemOrderManager().peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA)) && nextOrder != null) {
+			if (startOrder == null || startOrder.getAmount() <= 0)
+				startOrder = nextOrder;
+
+			if (!doesExtractionMatch(nextOrder, ItemIdentifier.get(extracted))) {
+				_service.getItemOrderManager().deferSend();
+				continue;
+			}
+
+			if (nextOrder.getDestination() != null && nextOrder.getInformation() instanceof CraftingChassieInformation) {
+				CrafterBarrier.LogisticsModuleValue destModule = new CrafterBarrier.LogisticsModuleValue();
+				int maxToSend = CrafterBarrier.maxSend(nextOrder, extracted.getCount(), destModule, true);
+				if (maxToSend <= 0) {
+					_service.getItemOrderManager().deferSend();
+					continue;
+				}
+
+				ItemStack stackToSend = extracted.splitStack(Math.min(maxToSend, nextOrder.getAmount()));
+				// System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to CraftingChassieInformation");
+
+				IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
+				item.setTransportMode(TransportMode.Active);
+				item.setDestination(nextOrder.getDestination().getRouter().getSimpleID());
+				item.setAdditionalTargetInformation(nextOrder.getInformation());
+
+				_service.queueRoutedItem(item, direction);
+				if (destModule.value != null)
+					destModule.value.myBarrierRecipe.enterBarrier(item);
+				_service.getItemOrderManager().sendSuccessfull(stackToSend.getCount(), false, item);
+
+			} else if (nextOrder.getDestination() instanceof IItemSpaceControl) {
+				SinkReply reply = LogisticsManager.canSink(nextOrder.getDestination().getRouter(), null, true, ItemIdentifier.get(extracted), null, true, false);
+				if (reply != null && reply.bufferMode == BufferMode.NONE && reply.maxNumberOfItems > 0) {
+					ItemStack stackToSend = extracted.splitStack(Math.min(reply.maxNumberOfItems, nextOrder.getAmount()));
+					// System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to IItemSpaceControl");
+
+					IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
+					item.setTransportMode(TransportMode.Active);
+					item.setDestination(nextOrder.getDestination().getRouter().getSimpleID());
+					item.setAdditionalTargetInformation(nextOrder.getInformation());
+
+					_service.queueRoutedItem(item, direction);
+					_service.getItemOrderManager().sendSuccessfull(stackToSend.getCount(), false, item);
+				} else {
+					_service.getItemOrderManager().deferSend();
+				}
+			} else {
+				ItemStack stackToSend = extracted.splitStack(nextOrder.getAmount());
+				// System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to simple");
+
+				IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
+				item.setTransportMode(TransportMode.Active);
+				if (nextOrder.getDestination() != null)
+					item.setDestination(nextOrder.getDestination().getRouter().getSimpleID());
+				item.setAdditionalTargetInformation(nextOrder.getInformation());
+
+				_service.queueRoutedItem(item, direction);
+				_service.getItemOrderManager().sendSuccessfull(stackToSend.getCount(), false, item);
+			}
+		}
+		startOrder = null; // store up item
+		while (!extracted.isEmpty() && startOrder != (nextOrder = _service.getItemOrderManager().peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA)) && nextOrder != null) {
+			if (startOrder == null || startOrder.getAmount() <= 0)
+				startOrder = nextOrder;
+
+			if (!doesExtractionMatch(nextOrder, ItemIdentifier.get(extracted))) {
+				_service.getItemOrderManager().deferSend();
+				continue;
+			}
+
+			ItemStack stackToSend = extracted.splitStack(nextOrder.getAmount());
+			// System.err.println("Stored up "+ItemIdentifierStack.getFromStack(stackToSend)+" for "+nextOrder.getDestination());
+
+			IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
+			item.setTransportMode(TransportMode.Active);
+			if (nextOrder.getDestination() != null)
+				item.setNextDest(nextOrder.getDestination(), nextOrder.getInformation());
+			else
+				System.err.println("getDestination==null !!!!");
+
+			_service.queueRoutedItem(item, direction);
+			_service.getItemOrderManager().sendSuccessfull(stackToSend.getCount(), false, item);
+		}
+		if (!extracted.isEmpty()) { // default
+			System.err.println("Sent " + ItemIdentifierStack.getFromStack(extracted) + " to default !!!!!");
+			IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(extracted);
+			item.setTransportMode(TransportMode.Active);
+			_service.queueRoutedItem(item, direction);
+		}
+	}
+
 	public void enabledUpdateEntity() {
 		if (_service.getItemOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) {
 			if (_service.isNthTick(6)) {
@@ -1041,6 +1193,21 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			}
 		} else {
 			cachedAreAllOrderesToBuffer = false;
+		}
+
+		if (_service.isNthTick(20)) {
+			WorldCoordinatesWrapper myCoordinates = new WorldCoordinatesWrapper(getWorld(), _service.getX(), _service.getY(), _service.getZ());
+
+			{ // if (getUpgradeManager().hasPatternUpgrade()) {
+				IInventoryUtil inv = myCoordinates
+						.connectedTileEntities(ConnectionPipeType.ITEM)
+						.map(neighbor -> neighbor.sneakyInsertion().from(getUpgradeManager()))
+						.filter(NeighborTileEntity::isItemHandler)
+						.map(NeighborTileEntity::getUtilForItemHandler)
+						.findFirst().orElse(null);
+				myBarrierRecipe.connectedInventory = (InventoryUtil) inv;
+				myBarrierRecipe.shapeless = !getUpgradeManager().hasPatternUpgrade();
+			}
 		}
 
 		if (!_service.isNthTick(6)) {
@@ -1107,59 +1274,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			_service.getCacheHolder().trigger(CacheTypes.Inventory);
 			lastAccessedCrafter = new WeakReference<>(adjacent.getTileEntity());
 			// send the new crafted items to the destination
-			ItemIdentifier extractedID = ItemIdentifier.get(extracted);
-			while (!extracted.isEmpty()) {
-				if (!doesExtractionMatch(nextOrder, extractedID)) {
-					LogisticsItemOrder startOrder = nextOrder;
-					if (_service.getItemOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) {
-						do {
-							_service.getItemOrderManager().deferSend();
-							nextOrder = _service.getItemOrderManager().peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA);
-						} while (!doesExtractionMatch(nextOrder, extractedID) && startOrder != nextOrder);
-					}
-					if (startOrder == nextOrder) {
-						int numtosend = Math.min(extracted.getCount(), extractedID.getMaxStackSize());
-						if (numtosend == 0) {
-							break;
-						}
-						stacksleft -= 1;
-						itemsleft -= numtosend;
-						ItemStack stackToSend = extracted.splitStack(numtosend);
-						//Route the unhandled item
-
-						_service.sendStack(stackToSend, -1, ItemSendMode.Normal, null);
-						continue;
-					}
-				}
-				int numtosend = Math.min(extracted.getCount(), extractedID.getMaxStackSize());
-				numtosend = Math.min(numtosend, nextOrder.getResource().stack.getStackSize());
-				if (numtosend == 0) {
-					break;
-				}
-				stacksleft -= 1;
-				itemsleft -= numtosend;
-				ItemStack stackToSend = extracted.splitStack(numtosend);
-				if (nextOrder.getDestination() != null) {
-					SinkReply reply = LogisticsManager.canSink(nextOrder.getDestination().getRouter(), null, true, ItemIdentifier.get(stackToSend), null, true,
-							false);
-					boolean defersend = false;
-					if (reply == null || reply.bufferMode != BufferMode.NONE || reply.maxNumberOfItems < 1) {
-						defersend = true;
-					}
-					IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
-					item.setDestination(nextOrder.getDestination().getRouter().getSimpleID());
-					item.setTransportMode(TransportMode.Active);
-					item.setAdditionalTargetInformation(nextOrder.getInformation());
-					_service.queueRoutedItem(item, adjacent.getDirection());
-					_service.getItemOrderManager().sendSuccessfull(stackToSend.getCount(), defersend, item);
-				} else {
-					_service.sendStack(stackToSend, -1, ItemSendMode.Normal, nextOrder.getInformation());
-					_service.getItemOrderManager().sendSuccessfull(stackToSend.getCount(), false, null);
-				}
-				if (_service.getItemOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) {
-					nextOrder = _service.getItemOrderManager().peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA); // fetch but not remove.
-				}
-			}
+			feedOrders(extracted, adjacent.getDirection());
 		}
 
 	}
@@ -1223,10 +1338,13 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		if (available == 0) {
 			return null;
 		}
-		if (!_service.useEnergy(neededEnergy() * Math.min(count, available))) {
+		// first verify extracted
+		if (!_service.canUseEnergy(neededEnergy() * Math.min(count, available))) {
 			return null;
 		}
-		return invUtil.getMultipleItems(itemToExtract, Math.min(count, available));
+		ItemStack extracted = invUtil.getMultipleItems(itemToExtract, Math.min(count, available));
+		_service.useEnergy(neededEnergy() * extracted.getCount());
+		return extracted;
 	}
 
 	private ItemStack extractFromInventoryFiltered(@Nonnull IInventoryUtil invUtil, ItemIdentifierInventory filter, boolean isExcluded, int filterInvLimit) {
@@ -1432,10 +1550,12 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 		@Getter
 		private final int craftingSlot;
+		public final EnumFacing machineDir;
 
-		public CraftingChassieInformation(int craftingSlot, int moduleSlot) {
+		public CraftingChassieInformation(int craftingSlot, int moduleSlot, EnumFacing machineDir) {
 			super(moduleSlot);
 			this.craftingSlot = craftingSlot;
+			this.machineDir = machineDir;
 		}
 	}
 

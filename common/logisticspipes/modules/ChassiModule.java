@@ -8,6 +8,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import logisticspipes.interfaces.IInventoryUtil;
 import logisticspipes.interfaces.IPipeServiceProvider;
 import logisticspipes.interfaces.IWorldProvider;
+import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.modules.abstractmodules.LogisticsGuiModule;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.NewGuiHandler;
@@ -73,6 +74,12 @@ public class ChassiModule extends LogisticsGuiModule {
 		if (bestresult == null) {
 			return null;
 		}
+
+		if (parentChassis.getUpgradeManager().hasPatternUpgrade()) {
+			// do not sneak besides pattern
+			return new SinkReply(bestresult, bestresult.maxNumberOfItems);
+		}
+
 		//Always deny items when we can't put the item anywhere
 		IInventoryUtil invUtil = parentChassis.getSneakyInventory(ModulePositionType.SLOT, ((ChassiTargetInformation) bestresult.addInfo).getModuleSlot());
 		if (invUtil == null) {

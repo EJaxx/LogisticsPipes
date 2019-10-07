@@ -230,6 +230,10 @@ public class AEInterfaceInventoryHandler extends SpecialInventoryHandler {
 		if (cached == null) {
 			initCache();
 		}
+		// RS485#1385 Fix
+		if (i >= cached.size()) {
+			return ItemStack.EMPTY;
+		}
 		Entry<ItemIdentifier, Integer> entry = cached.get(i);
 		if (entry.getValue() == 0) {
 			return ItemStack.EMPTY;

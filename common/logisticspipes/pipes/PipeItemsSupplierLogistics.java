@@ -22,6 +22,7 @@ import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.pipes.basic.debug.StatusEntry;
 import logisticspipes.textures.Textures;
 import logisticspipes.textures.Textures.TextureType;
+import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.utils.item.ItemIdentifierStack;
 
 public class PipeItemsSupplierLogistics extends CoreRoutedPipe implements IRequestItems, IRequireReliableTransport {
@@ -76,6 +77,9 @@ public class PipeItemsSupplierLogistics extends CoreRoutedPipe implements IReque
 	public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info) {
 		module.itemArrived(item, info);
 	}
+
+	@Override
+	public void itemArrived(LPTravelingItem.LPTravelingItemServer traveler) {}
 
 	@Override
 	public void addStatusInformation(List<StatusEntry> status) {

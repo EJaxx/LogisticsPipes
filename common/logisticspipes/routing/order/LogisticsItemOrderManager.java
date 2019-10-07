@@ -53,6 +53,11 @@ public class LogisticsItemOrderManager extends LogisticsOrderManager<LogisticsIt
 	}
 
 	public LogisticsItemOrder addOrder(ItemIdentifierStack stack, IRequestItems requester, ResourceType type, IAdditionalTargetInformation info) {
+		for (LogisticsItemOrder x : _orders)
+			if (x.getDestination() == requester && x.getInformation() == info && x.getResource().getItem().equals(stack.getItem())) {
+				x.reduceAmountBy(-stack.getStackSize());
+				return x;
+			}
 		LogisticsItemOrder order = new LogisticsItemOrder(new DictResource(stack, null), requester, type, info);
 		_orders.addLast(order);
 		listen();

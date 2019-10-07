@@ -357,6 +357,11 @@ public abstract class CoreUnroutedPipe implements IClientState, ILPPipe, ILPCCTy
 			}
 
 			@Override
+			public boolean hasPatternUpgrade() {
+				return false;
+			}
+
+			@Override
 			public boolean hasCombinedSneakyUpgrade() {
 				return false;
 			}

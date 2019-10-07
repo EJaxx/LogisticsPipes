@@ -18,6 +18,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
+import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.interfaces.routing.IRequireReliableFluidTransport;
 import logisticspipes.interfaces.routing.IRequireReliableTransport;
 import logisticspipes.items.LogisticsFluidContainer;
@@ -192,6 +193,8 @@ public abstract class LPTravelingItem {
 
 		@Getter
 		private ItemRoutingInformation info;
+		public IRequestItems nextDestination;
+		public IAdditionalTargetInformation nextDestInfo;
 
 		public LPTravelingItemServer(ItemIdentifierStack stack) {
 			super();
@@ -458,6 +461,12 @@ public abstract class LPTravelingItem {
 		@Override
 		public void setDistanceTracker(IDistanceTracker tracker) {
 			info.tracker = tracker;
+		}
+
+		@Override
+		public void setNextDest(IRequestItems nextDestination, IAdditionalTargetInformation nextDestInfo) {
+			this.nextDestination = nextDestination;
+			this.nextDestInfo = nextDestInfo;
 		}
 
 		@Override

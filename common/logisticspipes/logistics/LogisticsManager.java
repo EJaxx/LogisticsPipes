@@ -205,9 +205,9 @@ public class LogisticsManager implements ILogisticsManager {
 			}
 		}
 		if (result == null) {
-			reply = module.sinksItem(stack, -1, 0, allowDefault, true, true);
+			reply = module.sinksItem(stack, -1, 0, allowDefault, true, !activeRequest);
 		} else {
-			reply = module.sinksItem(stack, result.fixedPriority.ordinal(), result.customPriority, allowDefault, true, true);
+			reply = module.sinksItem(stack, result.fixedPriority.ordinal(), result.customPriority, allowDefault, true, !activeRequest);
 		}
 		if (result != null && result.maxNumberOfItems < 0) {
 			return null;

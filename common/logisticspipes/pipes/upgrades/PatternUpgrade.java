@@ -3,6 +3,7 @@ package logisticspipes.pipes.upgrades;
 import logisticspipes.modules.ModuleActiveSupplier;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.pipes.PipeItemsSupplierLogistics;
+import logisticspipes.pipes.PipeLogisticsChassi;
 import logisticspipes.pipes.basic.CoreRoutedPipe;
 
 public class PatternUpgrade implements IPipeUpgrade {
@@ -14,7 +15,7 @@ public class PatternUpgrade implements IPipeUpgrade {
 
 	@Override
 	public boolean isAllowedForPipe(CoreRoutedPipe pipe) {
-		return pipe instanceof PipeItemsSupplierLogistics;
+		return pipe instanceof PipeItemsSupplierLogistics || pipe instanceof PipeLogisticsChassi;
 	}
 
 	@Override

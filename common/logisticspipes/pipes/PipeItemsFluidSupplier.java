@@ -302,6 +302,11 @@ public class PipeItemsFluidSupplier extends CoreRoutedPipe implements IRequestIt
 		delayThrottle();
 	}
 
+	@Override
+	public void itemArrived(LPTravelingItemServer traveler) {
+
+	}
+
 	public boolean isRequestingPartials() {
 		return _requestPartials;
 	}

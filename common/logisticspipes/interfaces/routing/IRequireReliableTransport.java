@@ -7,6 +7,7 @@
 
 package logisticspipes.interfaces.routing;
 
+import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.utils.item.ItemIdentifierStack;
 
 public interface IRequireReliableTransport {
@@ -14,5 +15,6 @@ public interface IRequireReliableTransport {
 	void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info);
 
 	void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info);
+	void itemArrived(LPTravelingItem.LPTravelingItemServer traveler);
 
 }

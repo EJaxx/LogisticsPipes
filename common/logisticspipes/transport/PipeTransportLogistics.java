@@ -39,6 +39,7 @@ import logisticspipes.interfaces.ISubSystemPowerProvider;
 import logisticspipes.interfaces.routing.ITargetSlotInformation;
 import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.logisticspipes.IRoutedItem.TransportMode;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.modules.abstractmodules.LogisticsModule.ModulePositionType;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.pipe.ItemBufferSyncPacket;
@@ -52,9 +53,11 @@ import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.pipes.basic.CoreUnroutedPipe;
 import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
 import logisticspipes.pipes.basic.fluid.FluidRoutedPipe;
+import logisticspipes.pipes.upgrades.UpgradeManager;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.routing.ItemRoutingInformation;
+import logisticspipes.routing.order.IOrderInfoProvider;
 import logisticspipes.routing.pathfinder.IPipeInformationProvider;
 import logisticspipes.transport.LPTravelingItem.LPTravelingItemClient;
 import logisticspipes.transport.LPTravelingItem.LPTravelingItemServer;
@@ -463,6 +466,9 @@ public class PipeTransportLogistics {
 		if (MainProxy.isServer(getWorld()) && arrivingItem.getInfo() != null && arrivingItem.getArrived() && isRouted) {
 			getRoutedPipe().notifyOfItemArival(arrivingItem.getInfo());
 		}
+		if (MainProxy.isServer(getWorld()) && arrivingItem.getInfo() != null && arrivingItem.getArrived() && isRouted) {
+			getRoutedPipe().notifyOfItemArival(arrivingItem);
+		}
 		if (getPipe() instanceof FluidRoutedPipe) {
 			if (((FluidRoutedPipe) getPipe()).endReached(arrivingItem, tile)) {
 				return;
@@ -481,6 +487,9 @@ public class PipeTransportLogistics {
 			}
 		} else {
 			IInventoryUtil util = SimpleServiceLocator.inventoryUtilFactory.getInventoryUtil(tile, dir.getOpposite());
+			if (arrivingItem.nextDestination != null && getPipe() instanceof PipeLogisticsChassi) {
+				getRoutedPipe().getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack(), arrivingItem.nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.nextDestInfo);
+			}
 			if (util != null && isRouted) {
 				getRoutedPipe().getCacheHolder().trigger(CacheTypes.Inventory);
 
@@ -539,8 +548,16 @@ public class PipeTransportLogistics {
 							}
 						}
 					}
-					// sneaky insertion
-					if (!getRoutedPipe().getUpgradeManager().hasCombinedSneakyUpgrade() || slotManager.hasOwnSneakyUpgrade()) {
+
+					if (getRoutedPipe().getUpgradeManager() != null && getRoutedPipe().getUpgradeManager() instanceof UpgradeManager && getRoutedPipe().getUpgradeManager().hasPatternUpgrade()) {
+						if (arrivingItem.getAdditionalTargetInformation() instanceof ModuleCrafter.CraftingChassieInformation && util instanceof ISpecialInsertion) {
+							ModuleCrafter.CraftingChassieInformation information = (ModuleCrafter.CraftingChassieInformation) arrivingItem.getAdditionalTargetInformation();
+							int slot = information.getCraftingSlot();
+							ItemStack toAdd = arrivingItem.getItemIdentifierStack().makeNormalStack();
+							int added = ((ISpecialInsertion) util).addToSlot(toAdd, slot);
+							arrivingItem.getItemIdentifierStack().lowerStackSize(added);
+						}
+					} else if (!getRoutedPipe().getUpgradeManager().hasCombinedSneakyUpgrade() || slotManager.hasOwnSneakyUpgrade()) { // sneaky insertion
 						EnumFacing insertion = arrivingItem.output.getOpposite();
 						if (slotManager.hasSneakyUpgrade()) {
 							insertion = slotManager.getSneakyOrientation();

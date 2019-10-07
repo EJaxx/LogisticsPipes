@@ -24,6 +24,8 @@ public interface IPipeUpgradeManager {
 
 	boolean hasUpgradeModuleUpgrade();
 
+	boolean hasPatternUpgrade();
+
 	boolean hasCombinedSneakyUpgrade();
 
 	EnumFacing[] getCombinedSneakyOrientation();

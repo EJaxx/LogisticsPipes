@@ -479,9 +479,13 @@ public final class ItemIdentifier implements Comparable<ItemIdentifier>, ILPCCTy
 				}
 			}
 
-			if (tab != null) {
-				creativeTabName = tab.getTabLabel();
-			}
+			try {
+				if (tab != null) {
+					creativeTabName = tab.getTabLabel();
+				}
+			} catch (NoSuchMethodError e) {
+				creativeTabName = "";
+			};
 		}
 		return creativeTabName;
 	}

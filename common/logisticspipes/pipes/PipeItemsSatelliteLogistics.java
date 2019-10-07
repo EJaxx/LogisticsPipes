@@ -45,6 +45,7 @@ import logisticspipes.proxy.MainProxy;
 import logisticspipes.request.RequestTree;
 import logisticspipes.textures.Textures;
 import logisticspipes.textures.Textures.TextureType;
+import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.item.ItemIdentifierStack;
 
@@ -240,6 +241,9 @@ public class PipeItemsSatelliteLogistics extends CoreRoutedPipe implements IRequ
 
 	@Override
 	public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info) {}
+
+	@Override
+	public void itemArrived(LPTravelingItem.LPTravelingItemServer traveler) {}
 
 	public void setSatelliteName(String name) {
 		satellitePipeName = name;

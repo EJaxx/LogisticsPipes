@@ -4,6 +4,7 @@ import lombok.Getter;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IRequestItems;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.request.resources.DictResource;
 import logisticspipes.routing.IRouter;
 import logisticspipes.utils.item.ItemIdentifierStack;
@@ -17,6 +18,10 @@ public class LogisticsItemOrder extends LogisticsOrder {
 		}
 		resource = item;
 		this.destination = destination;
+		if (destination instanceof ModuleCrafter) {
+			((ModuleCrafter)destination).myBarrierRecipe.addOrder(this);
+			destination.getRouter();
+		}
 	}
 
 	@Getter
@@ -53,5 +58,8 @@ public class LogisticsItemOrder extends LogisticsOrder {
 	@Override
 	public void reduceAmountBy(int amount) {
 		resource.stack.setStackSize(resource.stack.getStackSize() - amount);
+		if ((destination instanceof ModuleCrafter) && (resource.stack.getStackSize() <= 0)) {
+			((ModuleCrafter)destination).myBarrierRecipe.removeOrder(this);
+		}
 	}
 }

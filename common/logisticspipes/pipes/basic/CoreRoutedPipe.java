@@ -23,6 +23,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -61,6 +62,7 @@ import logisticspipes.interfaces.ISlotUpgradeManager;
 import logisticspipes.interfaces.ISubSystemPowerProvider;
 import logisticspipes.interfaces.IWatchingHandler;
 import logisticspipes.interfaces.IWorldProvider;
+import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IFilter;
 import logisticspipes.interfaces.routing.IRequestItems;
@@ -113,6 +115,7 @@ import logisticspipes.security.PermissionException;
 import logisticspipes.security.SecuritySettings;
 import logisticspipes.textures.Textures;
 import logisticspipes.textures.Textures.TextureType;
+import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.transport.LPTravelingItem.LPTravelingItemServer;
 import logisticspipes.transport.PipeTransportLogistics;
 import logisticspipes.utils.CacheHolder;
@@ -181,6 +184,7 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 	private boolean isOpaqueClientSide = false;
 
 	private CacheHolder cacheHolder;
+	public CrafterBarrier crafterBarrier = new CrafterBarrier();
 
 	public CoreRoutedPipe(Item item) {
 		this(new PipeTransportLogistics(true), item);
@@ -225,6 +229,7 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 
 	@Override
 	public void queueRoutedItem(IRoutedItem routedItem, EnumFacing from) {
+		routedItem.getDestination();
 		if (from == null) {
 			throw new NullPointerException();
 		}
@@ -1301,6 +1306,21 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 		}
 	}
 
+	public void notifyOfItemArival(LPTravelingItem.LPTravelingItemServer traveler) {
+		if (this instanceof IRequireReliableTransport) {
+			((IRequireReliableTransport) this).itemArrived(traveler);
+		}
+//		if (this instanceof IRequireReliableFluidTransport) {
+//			ItemIdentifierStack stack = information.getItem();
+//			if (stack.getItem().isFluidContainer()) {
+//				FluidIdentifierStack liquid = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(stack);
+//				if (liquid != null) {
+//					((IRequireReliableFluidTransport) this).liquidArrived(liquid.getFluid(), liquid.getAmount());
+//				}
+//			}
+//		}
+	}
+
 	@Override
 	public int countOnRoute(ItemIdentifier it) {
 		int count = 0;
@@ -1310,6 +1330,10 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 			}
 		}
 		return count;
+	}
+
+	public Stream<ItemRoutingInformation> inTransitToMe() {
+		return _inTransitToMe.stream();
 	}
 
 	@Override

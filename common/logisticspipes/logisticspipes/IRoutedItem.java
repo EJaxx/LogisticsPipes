@@ -14,6 +14,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
+import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.routing.IRouter;
 import logisticspipes.routing.ItemRoutingInformation;
 import logisticspipes.routing.order.IDistanceTracker;
@@ -73,6 +74,8 @@ public interface IRoutedItem {
 	void writeToNBT(NBTTagCompound tagentityitem);
 
 	void setDistanceTracker(IDistanceTracker tracker);
+
+	void setNextDest(IRequestItems nextDestination, IAdditionalTargetInformation nextDestInfo);
 
 	IDistanceTracker getDistanceTracker();
 

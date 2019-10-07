@@ -24,6 +24,7 @@ import logisticspipes.interfaces.IModuleInventoryReceive;
 import logisticspipes.interfaces.IModuleWatchReciver;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IFilter;
+import logisticspipes.interfaces.routing.IItemSpaceControl;
 import logisticspipes.interfaces.routing.IProvideItems;
 import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.logistics.LogisticsManager;
@@ -191,7 +192,15 @@ public class ModuleProvider extends LogisticsSneakyDirectionModule implements IL
 				firstOrder = order;
 			}
 			order = _service.getItemOrderManager().peekAtTopRequest(ResourceType.PROVIDER);
-			int sent = sendStack(order.getResource().stack, itemsleft, order.getDestination().getRouter().getSimpleID(), order.getInformation());
+
+			CrafterBarrier.LogisticsModuleValue destModule = new CrafterBarrier.LogisticsModuleValue();
+			int maxToSend = CrafterBarrier.maxSend(order, itemsleft, destModule, false);
+			if (maxToSend <= 0) {
+				_service.getItemOrderManager().deferSend();
+				continue;
+			}
+
+			int sent = sendStack(order.getResource().stack, maxToSend, order.getDestination().getRouter().getSimpleID(), order.getInformation(), destModule.value);
 			if (sent < 0) {
 				break;
 			}
@@ -288,7 +297,7 @@ public class ModuleProvider extends LogisticsSneakyDirectionModule implements IL
 
 	// returns -1 on permanently failed, don't try another stack this tick
 	// returns 0 on "unable to do this delivery"
-	private int sendStack(ItemIdentifierStack stack, int maxCount, int destination, IAdditionalTargetInformation info) {
+	private int sendStack(ItemIdentifierStack stack, int maxCount, int destination, IAdditionalTargetInformation info, ModuleCrafter destModule) {
 		ItemIdentifier item = stack.getItem();
 		IInventoryUtil inv = _service.getPointedInventory(_extractionMode);
 		if (inv == null) {
@@ -311,6 +320,10 @@ public class ModuleProvider extends LogisticsSneakyDirectionModule implements IL
 		}
 		SinkReply reply = LogisticsManager.canSink(dRtr, null, true, stack.getItem(), null, true, false);
 		boolean defersend = false;
+		if (reply == null && (dRtr.getPipe() instanceof IItemSpaceControl)) {// these are aware
+			_service.getItemOrderManager().deferSend();
+			return 0;
+		}
 		if (reply != null) {// some pipes are not aware of the space in the adjacent inventory, so they return null
 			if (reply.maxNumberOfItems < wanted) {
 				wanted = reply.maxNumberOfItems;
@@ -333,7 +346,11 @@ public class ModuleProvider extends LogisticsSneakyDirectionModule implements IL
 		int sent = removed.getCount();
 		_service.useEnergy(sent * neededEnergy());
 
+		System.err.println("ProviderSent "+ItemIdentifierStack.getFromStack(removed)+" to "+destination);
 		IRoutedItem sendedItem = _service.sendStack(removed, destination, itemSendMode(), info);
+		if (destModule != null)
+			destModule.myBarrierRecipe.enterBarrier(sendedItem);
+
 		_service.getItemOrderManager().sendSuccessfull(sent, defersend, sendedItem);
 		return sent;
 	}

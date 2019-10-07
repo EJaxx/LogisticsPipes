@@ -51,6 +51,7 @@ import logisticspipes.routing.order.LogisticsItemOrderManager;
 import logisticspipes.routing.order.LogisticsOrder;
 import logisticspipes.textures.Textures;
 import logisticspipes.textures.Textures.TextureType;
+import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.utils.IHavePriority;
 import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.item.ItemIdentifier;
@@ -260,6 +261,11 @@ public class PipeItemsCraftingLogistics extends CoreRoutedPipe implements ICraft
 	@Override
 	public void itemArrived(ItemIdentifierStack item, IAdditionalTargetInformation info) {
 		craftingModule.itemArrived(item, info);
+	}
+
+	@Override
+	public void itemArrived(LPTravelingItem.LPTravelingItemServer traveler) {
+		craftingModule.myBarrierRecipe.itemArrived(traveler);
 	}
 
 	@Override
