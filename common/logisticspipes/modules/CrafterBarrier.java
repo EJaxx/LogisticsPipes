@@ -98,7 +98,7 @@ public class CrafterBarrier {
 				if (!el.stack.getItem().equals(stack.getItem()))
 					return 0;
 
-				int maxSteps = 0, ticketSum = 0;
+				int maxSteps = -1, ticketSum = 0;
 				for (int i = 0; i < 9; i++) {
 					if (inventory.getIDStackInSlot(i) == null) continue;
 					ItemIdentifier invItem = inventory.getIDStackInSlot(i).getItem();
@@ -116,8 +116,10 @@ public class CrafterBarrier {
 					int room = shapeless ? connectedInventory.roomForItem(invItem) : connectedInventory.roomForItemToSlot(invItem, i);
 					int arrived = elements.get(i).arrived;
 					int res = Math.min(arrived + inOrders + inTickets, room + arrived) / inventory.getIDStackInSlot(i).getStackSize();
-					if (i == 0 || maxSteps > res) maxSteps = res;
+					if (maxSteps == -1 || maxSteps > res && res >= 0) maxSteps = res;
 				}
+				if (maxSteps == -1)
+					maxSteps = 0;
 				int res = Math.max(0, maxSteps * inventoryID.getStackSize() - el.arrived - ticketSum);
 
 				if (maxSteps <= 0)

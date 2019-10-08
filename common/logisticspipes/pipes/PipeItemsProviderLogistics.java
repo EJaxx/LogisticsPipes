@@ -257,7 +257,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 		LogisticsItemOrder firstOrder = null;
 		LogisticsItemOrder order = null;
 		while (itemsleft > 0 && stacksleft > 0 && _orderManager.hasOrders(ResourceType.PROVIDER) && (firstOrder == null || firstOrder != order)) {
-			if (firstOrder == null) {
+			if (firstOrder == null || firstOrder.getAmount() <= 0) {
 				firstOrder = order;
 			}
 			order = _orderManager.peekAtTopRequest(ResourceType.PROVIDER);
