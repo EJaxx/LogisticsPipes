@@ -1118,9 +1118,13 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				_service.getItemOrderManager().sendSuccessfull(stackToSend.getCount(), false, item);
 
 			} else if (nextOrder.getDestination() instanceof IItemSpaceControl) {
+				int maxToSend = nextOrder.getAmount();
 				SinkReply reply = LogisticsManager.canSink(nextOrder.getDestination().getRouter(), null, true, ItemIdentifier.get(extracted), null, true, false);
-				if (reply != null && reply.bufferMode == BufferMode.NONE && reply.maxNumberOfItems > 0) {
-					ItemStack stackToSend = extracted.splitStack(Math.min(reply.maxNumberOfItems, nextOrder.getAmount()));
+				if (reply != null && reply.bufferMode == BufferMode.NONE) //  && reply.maxNumberOfItems > 0
+					maxToSend = Math.min(reply.maxNumberOfItems, maxToSend);
+
+				if (maxToSend >= 0) {
+					ItemStack stackToSend = extracted.splitStack(maxToSend);
 					// System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to IItemSpaceControl");
 
 					IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);

@@ -320,10 +320,10 @@ public class ModuleProvider extends LogisticsSneakyDirectionModule implements IL
 		}
 		SinkReply reply = LogisticsManager.canSink(dRtr, null, true, stack.getItem(), null, true, false);
 		boolean defersend = false;
-		if (reply == null && (dRtr.getPipe() instanceof IItemSpaceControl)) {// these are aware
-			_service.getItemOrderManager().deferSend();
-			return 0;
-		}
+//		if (reply == null && (dRtr.getPipe() instanceof IItemSpaceControl)) {// these are aware
+//			_service.getItemOrderManager().deferSend();
+//			return 0;
+//		}
 		if (reply != null) {// some pipes are not aware of the space in the adjacent inventory, so they return null
 			if (reply.maxNumberOfItems < wanted) {
 				wanted = reply.maxNumberOfItems;

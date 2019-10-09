@@ -91,12 +91,12 @@ public class CrafterBarrier {
 				}
 				Element el = elements.get(targetSlot);
 				ItemIdentifierStack inventoryID = inventory.getIDStackInSlot(targetSlot);
-				if (inventoryID == null || !inventoryID.getItem().equalsForCrafting(stack.getItem()))
+				if (inventoryID == null)// || !inventoryID.getItem().equalsForCrafting(stack.getItem()))
 					return -1;
-				if (el.arrived == 0 && (el.stack == null || inventoryID.getItem().equalsForCrafting(stack.getItem())))
+				if (el.arrived == 0 && el.stack == null)// || inventoryID.getItem().equalsForCrafting(stack.getItem())))
 					el.stack = inventoryID;
-				if (!el.stack.getItem().equals(stack.getItem()))
-					return 0;
+//				if (!el.stack.getItem().equals(stack.getItem()))
+//					return 0;
 
 				int maxSteps = -1, ticketSum = 0;
 				for (int i = 0; i < 9; i++) {

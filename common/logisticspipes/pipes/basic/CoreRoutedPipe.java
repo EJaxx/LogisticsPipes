@@ -229,7 +229,6 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 
 	@Override
 	public void queueRoutedItem(IRoutedItem routedItem, EnumFacing from) {
-		routedItem.getDestination();
 		if (from == null) {
 			throw new NullPointerException();
 		}
