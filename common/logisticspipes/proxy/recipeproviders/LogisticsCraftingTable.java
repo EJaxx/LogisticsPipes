@@ -45,10 +45,10 @@ public class LogisticsCraftingTable implements IFuzzyRecipeProvider {
 			}
 			inventory.setInventorySlotContents(i, newStack);
 		}
-
-		if (!bench.isFuzzy()) {
-			inventory.compactFirst(9);
-		}
+// ToDo: also disable grouping when there is PatternUpgrade
+//		if (!bench.isFuzzy()) {
+//			inventory.compactFirst(9);
+//		}
 
 		return true;
 	}

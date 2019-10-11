@@ -116,6 +116,7 @@ import logisticspipes.utils.item.ItemIdentifierInventory;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
 import network.rs485.logisticspipes.connection.NeighborTileEntity;
+import network.rs485.logisticspipes.connection.NeighborTileEntitySneakyInsertion;
 import network.rs485.logisticspipes.world.WorldCoordinatesWrapper;
 
 public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IHUDModuleHandler, IModuleWatchReciver, IGuiOpenControler {
@@ -1203,13 +1204,14 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			WorldCoordinatesWrapper myCoordinates = new WorldCoordinatesWrapper(getWorld(), _service.getX(), _service.getY(), _service.getZ());
 
 			{ // if (getUpgradeManager().hasPatternUpgrade()) {
-				IInventoryUtil inv = myCoordinates
+				NeighborTileEntitySneakyInsertion<TileEntity> firstNeighbor = myCoordinates
 						.connectedTileEntities(ConnectionPipeType.ITEM)
 						.map(neighbor -> neighbor.sneakyInsertion().from(getUpgradeManager()))
 						.filter(NeighborTileEntity::isItemHandler)
-						.map(NeighborTileEntity::getUtilForItemHandler)
+						//.map(NeighborTileEntity::getUtilForItemHandler)
 						.findFirst().orElse(null);
-				myBarrierRecipe.connectedInventory = (InventoryUtil) inv;
+				myBarrierRecipe.connectedInventory = firstNeighbor == null ? null : (InventoryUtil) firstNeighbor.getUtilForItemHandler();
+				myBarrierRecipe.connectedTileEntity = firstNeighbor == null ? null : firstNeighbor.getTileEntity();
 				myBarrierRecipe.shapeless = !getUpgradeManager().hasPatternUpgrade();
 			}
 		}
@@ -1257,8 +1259,21 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 		int itemsleft = itemsToExtract();
 		int stacksleft = stacksToExtract();
-		while (itemsleft > 0 && stacksleft > 0 && (_service.getItemOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA))) {
-			LogisticsItemOrder nextOrder = _service.getItemOrderManager().peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA); // fetch but not remove.
+		LogisticsItemOrder firstOrder = null;
+		LogisticsItemOrder nextOrder;
+		while (itemsleft > 0 && stacksleft > 0 && ((nextOrder = _service.getItemOrderManager().peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA)) != null) && (firstOrder != nextOrder)) {
+			if (firstOrder == null || firstOrder.getAmount() <= 0) {
+				firstOrder = nextOrder;
+			}
+			if (myBarrierRecipe.parent != null && myBarrierRecipe.parent.current != null) {
+				CrafterBarrier.Recipe current = myBarrierRecipe.parent.current;
+				if (!current.shapeless && myBarrierRecipe.connectedTileEntity instanceof LogisticsCraftingTableTileEntity
+						&& !current.inventory.getIDStackInSlot(9).getItem().equals(nextOrder.getResource().getItem())) {
+					// do not steal inputs from others recipes
+					_service.getItemOrderManager().deferSend();
+					continue;
+				}
+			}
 			int maxtosend = Math.min(itemsleft, nextOrder.getResource().stack.getStackSize());
 			maxtosend = Math.min(nextOrder.getResource().getItem().getMaxStackSize(), maxtosend);
 			// retrieve the new crafted items
@@ -1278,7 +1293,10 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			_service.getCacheHolder().trigger(CacheTypes.Inventory);
 			lastAccessedCrafter = new WeakReference<>(adjacent.getTileEntity());
 			// send the new crafted items to the destination
+			// System.err.println("ModuleCrafter extracted "+ItemIdentifierStack.getFromStack(extracted));
 			feedOrders(extracted, adjacent.getDirection());
+			if (adjacent.getTileEntity() instanceof LogisticsCraftingTableTileEntity && myBarrierRecipe.parent != null && myBarrierRecipe.parent.current != null)
+				myBarrierRecipe.parent.current.tryUnlock(); // still possible before extracting all
 		}
 
 	}

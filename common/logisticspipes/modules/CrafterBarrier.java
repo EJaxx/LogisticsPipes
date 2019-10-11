@@ -5,7 +5,10 @@ import java.util.HashSet;
 import java.util.List;
 
 import net.minecraft.inventory.IInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
 
+import logisticspipes.blocks.crafting.LogisticsCraftingTableTileEntity;
 import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.routing.order.IOrderInfoProvider;
@@ -52,6 +55,7 @@ public class CrafterBarrier {
 		public ItemIdentifierInventory inventory;
 		public List<Element> elements = new ArrayList<>(9);
 		public InventoryUtil connectedInventory;
+		public TileEntity connectedTileEntity;
 
 		public Recipe(ItemIdentifierInventory inventory) {
 			this.inventory = inventory;
@@ -72,6 +76,10 @@ public class CrafterBarrier {
 							.forEach(o -> o.arrived -= steps * o.stack.getStackSize());
 				}
 				if (elements.stream().allMatch(o -> o.arrived == 0 && o.tickets.isEmpty())) {
+					if (!shapeless && connectedTileEntity instanceof LogisticsCraftingTableTileEntity) {
+						if (!connectedInventory.getItemsAndCount().isEmpty())
+							return;
+					}
 					parent.current = null;
 					elements.forEach(o -> o.stack = null);
 				}
@@ -114,6 +122,8 @@ public class CrafterBarrier {
 						ticketSum = inTickets;
 					}
 					int room = shapeless ? connectedInventory.roomForItem(invItem) : connectedInventory.roomForItemToSlot(invItem, i);
+					if (!shapeless && connectedTileEntity instanceof LogisticsCraftingTableTileEntity)
+						room = invItem.getMaxStackSize(); // matrix will be changed upon receipt of the first item
 					int arrived = elements.get(i).arrived;
 					int res = Math.min(arrived + inOrders + inTickets, room + arrived) / inventory.getIDStackInSlot(i).getStackSize();
 					if (maxSteps == -1 || maxSteps > res && res >= 0) maxSteps = res;
@@ -141,6 +151,15 @@ public class CrafterBarrier {
 				if (parent.current != null)
 					System.err.println("enter to locked Barrier by (" + inventory.getIDStackInSlot(9) + "), current=" + parent.current.inventory.getIDStackInSlot(9) + " !!!!!");
 				parent.current = this;
+				if (!shapeless && connectedTileEntity instanceof LogisticsCraftingTableTileEntity) {
+					LogisticsCraftingTableTileEntity table = ((LogisticsCraftingTableTileEntity) connectedTileEntity);
+					ItemStack[] arrItems = new ItemStack[9];
+					for (int i = 0; i<9; i++) {
+						ItemIdentifierStack v = inventory.getIDStackInSlot(i);
+						arrItems[i] = v == null ? ItemStack.EMPTY : v.makeNormalStack();
+					}
+					table.handleNEIRecipePacket(arrItems);
+				}
 			}
 			el.tickets.add(traveler);
 		}
@@ -152,12 +171,14 @@ public class CrafterBarrier {
 			Element el = elements.get(info.getCraftingSlot());
 			ItemIdentifierStack travelID = traveler.getItemIdentifierStack();
 
+			System.err.println("itemArrived " + traveler.getItemIdentifierStack()+" to (" + inventory.getIDStackInSlot(9) + ")");
 			if (!el.tickets.remove(traveler)) {
 				System.err.println("pass to (" + inventory.getIDStackInSlot(9) + "), " + traveler.getItemIdentifierStack() + ", stowaway item !!!!!");
 				el.stack = travelID.getItem().makeStack(1);
 			}
 			el.arrived += travelID.getStackSize();
-			if (parent.current == this)
+			if (parent.current == this
+					&& !(connectedTileEntity instanceof LogisticsCraftingTableTileEntity)) // LogisticsCraftingTable must not be unlocked before extracting
 				tryUnlock();
 			return true;
 		}
