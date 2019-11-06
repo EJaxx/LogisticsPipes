@@ -167,6 +167,8 @@ public class CrafterBarrier {
 		// return true, if the traveler can enter into
 		// todo: split stack
 		public boolean itemArrived(IRoutedItem traveler) {
+			if (parent == null)
+				return false;
 			ModuleCrafter.CraftingChassieInformation info = (ModuleCrafter.CraftingChassieInformation) traveler.getInfo().targetInfo;
 			Element el = elements.get(info.getCraftingSlot());
 			ItemIdentifierStack travelID = traveler.getItemIdentifierStack();

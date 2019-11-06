@@ -35,6 +35,7 @@ import net.minecraftforge.common.util.Constants;
 import lombok.Getter;
 
 import logisticspipes.blocks.crafting.LogisticsCraftingTableTileEntity;
+import logisticspipes.interfaces.IClientInformationProvider;
 import logisticspipes.interfaces.IGuiOpenControler;
 import logisticspipes.interfaces.IHUDModuleHandler;
 import logisticspipes.interfaces.IHUDModuleRenderer;
@@ -119,7 +120,7 @@ import network.rs485.logisticspipes.connection.NeighborTileEntity;
 import network.rs485.logisticspipes.connection.NeighborTileEntitySneakyInsertion;
 import network.rs485.logisticspipes.world.WorldCoordinatesWrapper;
 
-public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IHUDModuleHandler, IModuleWatchReciver, IGuiOpenControler {
+public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IHUDModuleHandler, IModuleWatchReciver, IGuiOpenControler, IClientInformationProvider {
 
 	// for reliable transport
 	protected final DelayQueue<DelayedGeneric<Pair<ItemIdentifierStack, IAdditionalTargetInformation>>> _lostItems = new DelayQueue<>();
@@ -267,14 +268,14 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		return null;
 	}
 
-	//	@Override
-	//	public List<String> getClientInformation() {
-	//		List<String> list = new ArrayList<>();
-	//		list.add("Ingredients: ");
-	//		list.add("<inventory>");
-	//		list.add("<that>");
-	//		return list;
-	//	}
+
+	@Override
+	public List<String> getClientInformation() {
+		List<String> list = new ArrayList<>();
+		list.add("<inventory>");
+		list.add("<that>");
+		return list;
+	}
 
 	public void onAllowedRemoval() {}
 
