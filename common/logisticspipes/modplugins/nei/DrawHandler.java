@@ -1,5 +1,6 @@
 package logisticspipes.modplugins.nei;
 
+/*
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Slot;
@@ -37,7 +38,7 @@ public class DrawHandler implements IContainerDrawHandler {
 			}
 		}
 	}
-*/
+* /
 	@Override
 	public void renderSlotOverlay(GuiContainer gui, Slot slotActive) {
 		//TODO: Same as above
@@ -53,3 +54,4 @@ public class DrawHandler implements IContainerDrawHandler {
 		}
 	}
 }
+*/

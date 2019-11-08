@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 
 import net.minecraft.entity.item.EntityItem;
@@ -47,6 +48,7 @@ import logisticspipes.network.packets.pipe.PipeContentPacket;
 import logisticspipes.network.packets.pipe.PipeContentRequest;
 import logisticspipes.network.packets.pipe.PipePositionPacket;
 import logisticspipes.pipes.PipeItemsFluidSupplier;
+import logisticspipes.pipes.PipeItemsProviderLogistics;
 import logisticspipes.pipes.PipeLogisticsChassi;
 import logisticspipes.pipes.PipeLogisticsChassi.ChassiTargetInformation;
 import logisticspipes.pipes.basic.CoreRoutedPipe;
@@ -68,9 +70,11 @@ import logisticspipes.utils.SyncList;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
 import logisticspipes.utils.tuples.Triplet;
+import network.rs485.logisticspipes.connection.NeighborTileEntity;
 import network.rs485.logisticspipes.util.items.ItemStackLoader;
 import network.rs485.logisticspipes.world.CoordinateUtils;
 import network.rs485.logisticspipes.world.DoubleCoordinates;
+import network.rs485.logisticspipes.world.WorldCoordinatesWrapper;
 
 public class PipeTransportLogistics {
 
@@ -487,8 +491,16 @@ public class PipeTransportLogistics {
 			}
 		} else {
 			IInventoryUtil util = SimpleServiceLocator.inventoryUtilFactory.getInventoryUtil(tile, dir.getOpposite());
-			if (arrivingItem.nextDestination != null && getPipe() instanceof PipeLogisticsChassi) {
-				getRoutedPipe().getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack(), arrivingItem.nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.nextDestInfo);
+			if (arrivingItem.nextDestination != null) {
+				if (getPipe() instanceof PipeLogisticsChassi)
+					getRoutedPipe().getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack(), arrivingItem.nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.nextDestInfo);
+				else
+					new WorldCoordinatesWrapper(tile).allNeighborTileEntities()
+							.filter(NeighborTileEntity::isLogisticsPipe)
+							.filter(adjacent -> ((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe instanceof PipeItemsProviderLogistics)
+							.map(adjacent -> (CoreRoutedPipe) (((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe))
+							.findFirst()
+							.ifPresent(coreRoutedPipe -> coreRoutedPipe.getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack(), arrivingItem.nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.nextDestInfo));
 			}
 			if (util != null && isRouted) {
 				getRoutedPipe().getCacheHolder().trigger(CacheTypes.Inventory);

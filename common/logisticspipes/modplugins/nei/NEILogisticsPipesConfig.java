@@ -1,5 +1,5 @@
 package logisticspipes.modplugins.nei;
-
+/*
 import net.minecraftforge.fml.common.Mod;
 
 import codechicken.nei.api.IConfigureNEI;
@@ -52,7 +52,7 @@ public class NEILogisticsPipesConfig implements IConfigureNEI {
 		API.registerGuiOverlay(GuiSolderingStation.class, "solderingstation");
 		API.registerGuiOverlayHandler(GuiLogisticsCraftingTable.class, new LogisticsCraftingOverlayHandler(), "crafting");
 		API.registerGuiOverlayHandler(GuiRequestTable.class, new LogisticsCraftingOverlayHandler(), "crafting");
-		*/
+		* /
 	}
 
 	@Override
@@ -66,3 +66,4 @@ public class NEILogisticsPipesConfig implements IConfigureNEI {
 	}
 
 }
+*/

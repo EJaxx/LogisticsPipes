@@ -1,5 +1,6 @@
 package logisticspipes.modplugins.nei;
 
+/*
 import java.awt.BorderLayout;
 import java.util.List;
 import javax.swing.JFrame;
@@ -159,3 +160,4 @@ public class DebugHelper implements IContainerTooltipHandler {
 		}
 	}
 }
+*/

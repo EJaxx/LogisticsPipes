@@ -33,7 +33,12 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
 
 import lombok.Getter;
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.ProbeMode;
+import mcjty.theoneprobe.apiimpl.styles.ItemStyle;
 
+import logisticspipes.LPConstants;
 import logisticspipes.blocks.crafting.LogisticsCraftingTableTileEntity;
 import logisticspipes.interfaces.IClientInformationProvider;
 import logisticspipes.interfaces.IGuiOpenControler;
@@ -169,6 +174,12 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			fuzzyCraftingFlagArray[i] = new DictResource(null, null);
 		}
 		_dummyInventory.addListener(myBarrierRecipe);
+	}
+
+	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
+		ItemIdentifierStack res = _dummyInventory.getIDStackInSlot(9);
+		if (res != null)
+			probeInfo.horizontal().item(res.getItem().makeNormalStack(1),  new ItemStyle().width(16).height(8)).text(res.getItem().getFriendlyName());
 	}
 
 	/**
@@ -599,6 +610,16 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			if (resourceStack == null || resourceStack.getStackSize() == 0) {
 				continue;
 			}
+			boolean found = false;
+			for (String x : LPConstants.ToolFilters) {
+				ItemIdentifier it = resourceStack.getItem();
+				if (!x.startsWith("{"))
+					found |= it.toString().matches(x);
+				else if (it.tag != null)
+					found |= resourceStack.getItem().tag.toString().matches(x);
+			}
+			if (found)
+				continue;
 			IResource req;
 			if (getUpgradeManager().isFuzzyUpgrade() && fuzzyCraftingFlagArray[i].getBitSet().nextSetBit(0) != -1) {
 				DictResource dict;
@@ -1098,7 +1119,8 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				continue;
 			}
 
-			if (nextOrder.getDestination() != null && nextOrder.getInformation() instanceof CraftingChassieInformation) {
+			if (nextOrder.getDestination() != null && nextOrder.getInformation() instanceof CraftingChassieInformation &&
+					(nextOrder.getDestination() instanceof ModuleCrafter) && ((ModuleCrafter) nextOrder.getDestination()).slot != ModulePositionType.IN_PIPE) {
 				CrafterBarrier.LogisticsModuleValue destModule = new CrafterBarrier.LogisticsModuleValue();
 				int maxToSend = CrafterBarrier.maxSend(nextOrder, extracted.getCount(), destModule, true);
 				if (maxToSend <= 0) {

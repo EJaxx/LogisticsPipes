@@ -3,7 +3,14 @@ package logisticspipes.modules;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
+
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.ProbeMode;
 
 import logisticspipes.interfaces.IInventoryUtil;
 import logisticspipes.interfaces.IPipeServiceProvider;
@@ -32,6 +39,13 @@ public class ChassiModule extends LogisticsGuiModule {
 		this.parentChassis = parentChassis;
 		_service = parentChassis;
 		registerPosition(ModulePositionType.IN_PIPE, 0);
+	}
+
+	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
+		for (LogisticsModule module : modules) {
+			if (module instanceof ModuleCrafter)
+				((ModuleCrafter)module).addProbeInfo(mode, probeInfo, player, world, blockState, data);
+		}
 	}
 
 	public void installModule(int slot, LogisticsModule module) {

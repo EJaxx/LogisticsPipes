@@ -23,6 +23,7 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
 
+import logisticspipes.gui.GuiCraftingPipe;
 import logisticspipes.gui.GuiLogisticsCraftingTable;
 import logisticspipes.gui.orderer.GuiRequestTable;
 import logisticspipes.gui.popup.GuiRecipeImport;
@@ -54,13 +55,19 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 
 			LogisticsBaseGuiScreen gui = dContainer.guiHolderForJEI;
 
-			if (gui instanceof GuiLogisticsCraftingTable || gui instanceof GuiRequestTable) {
+			if (gui instanceof GuiLogisticsCraftingTable || gui instanceof GuiRequestTable || gui instanceof GuiCraftingPipe) {
 
-				TileEntity tile;
+				TileEntity tile = null;
 				if (gui instanceof GuiLogisticsCraftingTable) {
 					tile = ((GuiLogisticsCraftingTable) gui)._crafter;
-				} else {
+				}
+				if (gui instanceof GuiRequestTable) {
 					tile = ((GuiRequestTable) gui)._table.container;
+				}
+
+				if (gui instanceof GuiCraftingPipe) {
+					System.err.println(recipeLayout.getRecipeCategory().getTitle());
+					//return null;
 				}
 
 				if (tile == null) {
@@ -80,10 +87,12 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 				Map<Integer, ? extends IGuiIngredient<ItemStack>> guiIngredients = guiItemStackGroup.getGuiIngredients();
 
 				if (doTransfer) {
+					int slot = 0;
 					for (Map.Entry<Integer, ? extends IGuiIngredient<ItemStack>> ps : guiIngredients.entrySet()) {
 						if (!ps.getValue().isInput()) continue;
 
-						int slot = ps.getKey() - 1;
+						if (recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING))
+							slot = ps.getKey() - 1;
 
 						if (slot < 9) {
 							stack[slot] = ps.getValue().getDisplayedIngredient();
@@ -108,6 +117,11 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 								}
 							}
 						}
+						slot++;
+					}
+
+					if (!recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING)) {
+						return recipeTransferHandlerHelper.createInternalError();
 					}
 
 					if (hasCanidates) {

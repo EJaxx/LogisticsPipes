@@ -4,7 +4,7 @@ import net.minecraft.entity.player.EntityPlayer;
 
 import logisticspipes.LPConstants;
 import logisticspipes.config.Configs;
-import logisticspipes.modplugins.nei.LoadingHelper;
+// import logisticspipes.modplugins.nei.LoadingHelper;
 import logisticspipes.network.abstractpackets.ModernPacket;
 import logisticspipes.utils.StaticResolve;
 import network.rs485.logisticspipes.util.LPDataInput;
@@ -25,7 +25,7 @@ public class ActivateNBTDebug extends ModernPacket {
 		try {
 			Class.forName("codechicken.nei.handler.NEIClientEventHandler");
 			Configs.TOOLTIP_INFO = true;
-			LoadingHelper.LoadNeiNBTDebugHelper();
+			// LoadingHelper.LoadNeiNBTDebugHelper();
 		} catch (ClassNotFoundException ignored) {
 
 		} catch (Exception e1) {

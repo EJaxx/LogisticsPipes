@@ -113,6 +113,11 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 	}
 
 	@Override
+	public LogisticsItemOrderManager getItemOrderManager() {
+		return _orderManager;
+	}
+
+	@Override
 	public void onAllowedRemoval() {
 		while (_orderManager.hasOrders(ResourceType.PROVIDER)) {
 			_orderManager.sendFailed();
@@ -256,6 +261,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 		int stacksleft = stacksToExtract();
 		LogisticsItemOrder firstOrder = null;
 		LogisticsItemOrder order = null;
+		// if (isNthTick(20))
 		while (itemsleft > 0 && stacksleft > 0 && _orderManager.hasOrders(ResourceType.PROVIDER) && (firstOrder == null || firstOrder != order)) {
 			if (firstOrder == null || firstOrder.getAmount() <= 0) {
 				firstOrder = order;

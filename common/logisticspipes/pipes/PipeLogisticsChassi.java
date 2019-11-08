@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.inventory.IInventory;
@@ -26,10 +27,14 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.World;
 
 import net.minecraftforge.fml.client.FMLClientHandler;
 
 import lombok.Getter;
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.ProbeMode;
 
 import logisticspipes.LPConstants;
 import logisticspipes.config.Configs;
@@ -88,6 +93,7 @@ import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.utils.EnumFacingUtil;
 import logisticspipes.utils.ISimpleInventoryEventHandler;
 import logisticspipes.utils.PlayerCollectionList;
+import logisticspipes.utils.TOPCompatibility;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierInventory;
 import logisticspipes.utils.item.ItemIdentifierStack;
@@ -96,7 +102,7 @@ import network.rs485.logisticspipes.world.CoordinateUtils;
 import network.rs485.logisticspipes.world.DoubleCoordinates;
 
 @CCType(name = "LogisticsChassiePipe")
-public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICraftItems, IBufferItems, ISimpleInventoryEventHandler, ISendRoutedItem, IProvideItems, IHeadUpDisplayRendererProvider, ISendQueueContentRecieiver {
+public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICraftItems, IBufferItems, ISimpleInventoryEventHandler, ISendRoutedItem, IProvideItems, IHeadUpDisplayRendererProvider, ISendQueueContentRecieiver, TOPCompatibility.TOPInfoProvider {
 
 	private final ChassiModule _module;
 	private final ItemIdentifierInventory _moduleInventory;
@@ -120,6 +126,13 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 		_module = new ChassiModule(getChassiSize(), this);
 		hud = new HudChassisPipe(this, _module, _moduleInventory);
 		pointedDirection = null;
+	}
+
+	@Override
+	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
+		_module.addProbeInfo(mode, probeInfo, player, world, blockState, data);
+		if (crafterBarrier.current != null)
+			crafterBarrier.current.addProbeInfo(mode, probeInfo, player, world, blockState, data);
 	}
 
 	@Override

@@ -84,6 +84,7 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 
 		DummyContainer dummy = new DummyContainer(player.inventory, dummyInventory);
 		dummy.addNormalSlotsForPlayerInventory(8, ySize - 82);
+		dummy.guiHolderForJEI = this;
 
 		// Input slots
 		for (int l = 0; l < 9; l++) {

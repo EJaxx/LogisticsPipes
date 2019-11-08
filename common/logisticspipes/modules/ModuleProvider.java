@@ -187,6 +187,7 @@ public class ModuleProvider extends LogisticsSneakyDirectionModule implements IL
 		int stacksleft = stacksToExtract();
 		LogisticsItemOrder firstOrder = null;
 		LogisticsItemOrder order = null;
+		// if (_service.isNthTick(20))
 		while (itemsleft > 0 && stacksleft > 0 && _service.getItemOrderManager().hasOrders(ResourceType.PROVIDER) && (firstOrder == null || firstOrder != order)) {
 			if (firstOrder == null || firstOrder.getAmount() <= 0) {
 				firstOrder = order;

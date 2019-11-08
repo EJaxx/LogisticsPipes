@@ -3,10 +3,20 @@ package logisticspipes.modules;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.world.World;
+
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.ProbeMode;
+import mcjty.theoneprobe.apiimpl.styles.ItemStyle;
 
 import logisticspipes.blocks.crafting.LogisticsCraftingTableTileEntity;
 import logisticspipes.logisticspipes.IRoutedItem;
@@ -18,10 +28,28 @@ import logisticspipes.utils.InventoryUtil;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierInventory;
 import logisticspipes.utils.item.ItemIdentifierStack;
+import network.rs485.logisticspipes.world.CoordinateUtils;
+import network.rs485.logisticspipes.world.IntegerCoordinates;
+import network.rs485.logisticspipes.world.WorldCoordinatesWrapper;
 
 public class CrafterBarrier {
 
 	public Recipe current = null;
+	private static Map<WorldCoordinatesWrapper, CrafterBarrier> globalBarrierRegistry;
+
+	public static CrafterBarrier GetOrCreateBarrier(WorldCoordinatesWrapper wc, EnumFacing direction) {
+		IntegerCoordinates newCoords = CoordinateUtils.add(new IntegerCoordinates(wc.getCoords()), direction);
+		return GetOrCreateBarrier(new WorldCoordinatesWrapper(wc.getWorld(), newCoords));
+	}
+
+	public static CrafterBarrier GetOrCreateBarrier(WorldCoordinatesWrapper wc) {
+		CrafterBarrier value = globalBarrierRegistry.get(wc);
+		if (value == null) {
+			value = new CrafterBarrier();
+			globalBarrierRegistry.put(wc, value);
+		}
+		return value;
+	}
 
 	public static class LogisticsModuleValue {
 		public ModuleCrafter value = null;
@@ -82,6 +110,7 @@ public class CrafterBarrier {
 					}
 					parent.current = null;
 					elements.forEach(o -> o.stack = null);
+					System.err.println("Unlocked (" + inventory.getIDStackInSlot(9) + ")");
 				}
 			}
 		}
@@ -216,6 +245,26 @@ public class CrafterBarrier {
 			if (logisticsItemOrder.getInformation() instanceof ModuleCrafter.CraftingChassieInformation) {
 				int craftingSlot = ((ModuleCrafter.CraftingChassieInformation) logisticsItemOrder.getInformation()).getCraftingSlot();
 				elements.get(craftingSlot).orders.remove(logisticsItemOrder);
+			}
+		}
+
+		public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
+			ItemIdentifierStack res = inventory.getIDStackInSlot(9);
+			if (res != null)
+				probeInfo.text("Locked to: " + res.getItem().getFriendlyName());
+
+			Element it;
+			for (int i = 0; i < 9 && i < inventory.getSizeInventory(); i++) {
+				res = inventory.getIDStackInSlot(i);
+				it = elements.get(i);
+				if (it != null)
+					probeInfo
+							.horizontal().item(res.getItem().makeNormalStack(1), new ItemStyle().width(16).height(8)).text(res.getItem().getFriendlyName())
+							.text(": a" + it.arrived
+									+ "/t" + it.tickets.stream().mapToInt(o -> o.getItemIdentifierStack().getStackSize()).sum()
+									+ "/p" + it.orders.stream().filter(o -> o.getType() == IOrderInfoProvider.ResourceType.PROVIDER).mapToInt(LogisticsItemOrder::getAmount).sum()
+									+ "/c" + it.orders.stream().filter(o -> o.getType() != IOrderInfoProvider.ResourceType.PROVIDER).mapToInt(LogisticsItemOrder::getAmount).sum()
+							);
 			}
 		}
 	}

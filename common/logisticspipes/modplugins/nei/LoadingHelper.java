@@ -1,5 +1,5 @@
 package logisticspipes.modplugins.nei;
-
+/*
 import net.minecraftforge.fml.client.FMLClientHandler;
 
 import codechicken.nei.handler.NEIClientEventHandler;
@@ -23,3 +23,4 @@ public class LoadingHelper {
 	}
 
 }
+*/

@@ -29,8 +29,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextFormatting;
 
-import codechicken.nei.api.INEIGuiHandler;
-import codechicken.nei.api.TaggedInventoryArea;
+// import codechicken.nei.api.INEIGuiHandler;
+// import codechicken.nei.api.TaggedInventoryArea;
 import lombok.Getter;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -53,7 +53,7 @@ import logisticspipes.utils.gui.extention.GuiExtentionController.GuiSide;
 import logisticspipes.utils.string.StringUtils;
 
 @ModDependentInterface(modId = { LPConstants.neiModID }, interfacePath = { "codechicken.nei.api.INEIGuiHandler" })
-public abstract class LogisticsBaseGuiScreen extends GuiContainer implements ISubGuiControler, INEIGuiHandler, IGuiAccess {
+public abstract class LogisticsBaseGuiScreen extends GuiContainer implements ISubGuiControler, IGuiAccess { //, INEIGuiHandler
 
 	protected static final ResourceLocation ITEMSINK = new ResourceLocation("logisticspipes", "textures/gui/itemsink.png");
 	protected static final ResourceLocation SUPPLIER = new ResourceLocation("logisticspipes", "textures/gui/supplier.png");
@@ -568,51 +568,51 @@ public abstract class LogisticsBaseGuiScreen extends GuiContainer implements ISu
 		return this;
 	}
 
-	@Override
-	@ModDependentMethod(modId = LPConstants.neiModID)
-	public List<TaggedInventoryArea> getInventoryAreas(GuiContainer gui) {
-		return null;
-	}
+//	@Override
+//	@ModDependentMethod(modId = LPConstants.neiModID)
+//	public List<TaggedInventoryArea> getInventoryAreas(GuiContainer gui) {
+//		return null;
+//	}
 
-	@Override
-	@ModDependentMethod(modId = LPConstants.neiModID)
-	public Iterable<Integer> getItemSpawnSlots(GuiContainer gui, ItemStack stack) {
-		return null;
-	}
+//	@Override
+//	@ModDependentMethod(modId = LPConstants.neiModID)
+//	public Iterable<Integer> getItemSpawnSlots(GuiContainer gui, ItemStack stack) {
+//		return null;
+//	}
 
-	@Override
-	@ModDependentMethod(modId = LPConstants.neiModID)
-	public boolean handleDragNDrop(GuiContainer gui, int mouseX, int mouseY, @Nonnull ItemStack stack, int button) {
-		if (gui instanceof LogisticsBaseGuiScreen && gui.inventorySlots instanceof DummyContainer && !stack.isEmpty()) {
-			Slot result = null;
-			int pos = -1;
-			for (int k = 0; k < inventorySlots.inventorySlots.size(); ++k) {
-				Slot slot = inventorySlots.inventorySlots.get(k);
-				if (isMouseOverSlot(slot, mouseX, mouseY)) {
-					result = slot;
-					pos = k;
-					break;
-				}
-			}
-			if (result != null) {
-				if (result instanceof DummySlot || result instanceof ColorSlot || result instanceof FluidSlot) {
-					((DummyContainer) gui.inventorySlots).handleDummyClick(result, pos, stack, button, ClickType.PICKUP, mc.player);
-					MainProxy.sendPacketToServer(PacketHandler.getPacket(DummyContainerSlotClick.class).setSlotId(pos).setStack(stack).setButton(button));
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-	@Override
-	@ModDependentMethod(modId = LPConstants.neiModID)
-	public boolean hideItemPanelSlot(GuiContainer gui, int x, int y, int w, int h) {
-		if (gui instanceof LogisticsBaseGuiScreen) {
-			return ((LogisticsBaseGuiScreen) gui).extentionControllerRight.isOverPanel(x, y, w, h);
-		}
-		return false;
-	}
+//	@Override
+//	@ModDependentMethod(modId = LPConstants.neiModID)
+//	public boolean handleDragNDrop(GuiContainer gui, int mouseX, int mouseY, @Nonnull ItemStack stack, int button) {
+//		if (gui instanceof LogisticsBaseGuiScreen && gui.inventorySlots instanceof DummyContainer && !stack.isEmpty()) {
+//			Slot result = null;
+//			int pos = -1;
+//			for (int k = 0; k < inventorySlots.inventorySlots.size(); ++k) {
+//				Slot slot = inventorySlots.inventorySlots.get(k);
+//				if (isMouseOverSlot(slot, mouseX, mouseY)) {
+//					result = slot;
+//					pos = k;
+//					break;
+//				}
+//			}
+//			if (result != null) {
+//				if (result instanceof DummySlot || result instanceof ColorSlot || result instanceof FluidSlot) {
+//					((DummyContainer) gui.inventorySlots).handleDummyClick(result, pos, stack, button, ClickType.PICKUP, mc.player);
+//					MainProxy.sendPacketToServer(PacketHandler.getPacket(DummyContainerSlotClick.class).setSlotId(pos).setStack(stack).setButton(button));
+//					return true;
+//				}
+//			}
+//		}
+//		return false;
+//	}
+//
+//	@Override
+//	@ModDependentMethod(modId = LPConstants.neiModID)
+//	public boolean hideItemPanelSlot(GuiContainer gui, int x, int y, int w, int h) {
+//		if (gui instanceof LogisticsBaseGuiScreen) {
+//			return ((LogisticsBaseGuiScreen) gui).extentionControllerRight.isOverPanel(x, y, w, h);
+//		}
+//		return false;
+//	}
 
 	public IChainAddList<EventListener> onGuiEvents = new ChainAddArrayList<>();
 
