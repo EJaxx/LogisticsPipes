@@ -1143,10 +1143,8 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 			if (nextOrder.getDestination() != null && nextOrder.getInformation() instanceof CraftingChassieInformation &&
 					(nextOrder.getDestination() instanceof ModuleCrafter) && (((ModuleCrafter) nextOrder.getDestination()).slot != ModulePositionType.IN_PIPE)) {
-				if (nextOrder.getDestination().getRouter().getSimpleID() != getRouter().getSimpleID()) {
-					System.err.println("Loopback cancelled");
-					continue;
-				}
+				if (true) continue; // temporary disabled
+
 				CrafterBarrier.LogisticsModuleValue destModule = new CrafterBarrier.LogisticsModuleValue();
 				int maxToSend = CrafterBarrier.maxSend(nextOrder, extracted.getCount(), destModule, true);
 				if (maxToSend <= 0) {
