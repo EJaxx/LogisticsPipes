@@ -71,11 +71,11 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 				}
 
 				if (tile == null) {
-					return recipeTransferHandlerHelper.createInternalError();
+					//					return recipeTransferHandlerHelper.createInternalError();
 				}
 
 				if (!recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING)) {
-					return recipeTransferHandlerHelper.createInternalError();
+					//					return recipeTransferHandlerHelper.createInternalError();
 				}
 
 				ItemStack[] stack = new ItemStack[9];
@@ -86,10 +86,16 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 				IGuiItemStackGroup guiItemStackGroup = recipeLayout.getItemStacks();
 				Map<Integer, ? extends IGuiIngredient<ItemStack>> guiIngredients = guiItemStackGroup.getGuiIngredients();
 
+				ItemStack craftTarget = null;
 				if (doTransfer) {
 					int slot = 0;
 					for (Map.Entry<Integer, ? extends IGuiIngredient<ItemStack>> ps : guiIngredients.entrySet()) {
-						if (!ps.getValue().isInput()) continue;
+						if (!ps.getValue().isInput()) {
+							List<ItemStack> ls = ps.getValue().getAllIngredients();
+							if (craftTarget == null && ls.size() > 0)
+								craftTarget = ls.get(0);
+							continue;
+						}
 
 						if (recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING))
 							slot = ps.getKey() - 1;
@@ -120,14 +126,25 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 						slot++;
 					}
 
+					if (gui instanceof GuiCraftingPipe) {
+						GuiCraftingPipe cpGui = (GuiCraftingPipe) gui;
+						if (hasCanidates) {
+							gui.setSubGui(new GuiRecipeImport(cpGui, stacks, craftTarget));
+						} else
+							cpGui.transferRecipe(stack, craftTarget);
+						return null;
+					}
+
 					if (!recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING)) {
 						return recipeTransferHandlerHelper.createInternalError();
 					}
 
-					if (hasCanidates) {
-						gui.setSubGui(new GuiRecipeImport(tile, stacks));
-					} else {
-						MainProxy.sendPacketToServer(packet.setContent(stack).setTilePos(tile));
+					if (tile != null) {
+						if (hasCanidates) {
+							gui.setSubGui(new GuiRecipeImport(tile, stacks));
+						} else {
+							MainProxy.sendPacketToServer(packet.setContent(stack).setTilePos(tile));
+						}
 					}
 				}
 				return null;

@@ -105,7 +105,7 @@ public class CrafterBarrier {
 				}
 				if (elements.stream().allMatch(o -> o.arrived == 0 && o.tickets.isEmpty())) {
 					if (!shapeless && connectedTileEntity instanceof LogisticsCraftingTableTileEntity) {
-						if (!connectedInventory.getItemsAndCount().isEmpty())
+						if (connectedInventory.getItemsAndCount().keySet().stream().anyMatch(o -> !ModuleCrafter.isSharedTool(o)))
 							return;
 					}
 					parent.current = null;
@@ -139,6 +139,7 @@ public class CrafterBarrier {
 				for (int i = 0; i < 9; i++) {
 					if (inventory.getIDStackInSlot(i) == null) continue;
 					ItemIdentifier invItem = inventory.getIDStackInSlot(i).getItem();
+					if (ModuleCrafter.isTool(invItem)) continue;
 					int inOrders = elements.get(i).orders.stream()
 							.filter(o -> o.getType() == IOrderInfoProvider.ResourceType.PROVIDER).mapToInt(LogisticsItemOrder::getAmount).sum();
 					int inTickets = elements.get(i).tickets.stream()
@@ -150,7 +151,8 @@ public class CrafterBarrier {
 							inTickets += stack.getStackSize();
 						ticketSum = inTickets;
 					}
-					int room = shapeless ? connectedInventory.roomForItem(invItem) : connectedInventory.roomForItemToSlot(invItem, i);
+					int room = (shapeless || connectedTileEntity instanceof LogisticsCraftingTableTileEntity) ?
+							connectedInventory.roomForItem(invItem) : connectedInventory.roomForItemToSlot(invItem, i);
 					if (!shapeless && connectedTileEntity instanceof LogisticsCraftingTableTileEntity)
 						room = invItem.getMaxStackSize(); // matrix will be changed upon receipt of the first item
 					int arrived = elements.get(i).arrived;
@@ -257,7 +259,7 @@ public class CrafterBarrier {
 			for (int i = 0; i < 9 && i < inventory.getSizeInventory(); i++) {
 				res = inventory.getIDStackInSlot(i);
 				it = elements.get(i);
-				if (it != null)
+				if (it != null && res != null)
 					probeInfo
 							.horizontal().item(res.getItem().makeNormalStack(1), new ItemStyle().width(16).height(8)).text(res.getItem().getFriendlyName())
 							.text(": a" + it.arrived

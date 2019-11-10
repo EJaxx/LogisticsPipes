@@ -28,6 +28,7 @@ import logisticspipes.gui.modules.ModuleBaseGui;
 import logisticspipes.gui.popup.GuiSelectSatellitePopup;
 import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.network.PacketHandler;
+import logisticspipes.network.packets.SetGhostItemPacket;
 import logisticspipes.network.packets.cpipe.CPipeCleanupImport;
 import logisticspipes.network.packets.cpipe.CPipeCleanupToggle;
 import logisticspipes.network.packets.pipe.CraftingPipeSetSatellitePacket;
@@ -208,6 +209,18 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 				cleanupExtention.registerSlot(cleanupSlotIDs[i]);
 			}
 			extentionControllerLeft.addExtention(cleanupExtention);
+		}
+	}
+
+	public void transferRecipe(ItemStack[] craftIngredients, ItemStack craftTarget) {
+		try {
+			for (int i = 0; i < 9; i++)
+				MainProxy.sendPacketToServer(
+						PacketHandler.getPacket(SetGhostItemPacket.class).setInteger(36 + i).setStack(craftIngredients[i] == null ? ItemStack.EMPTY : craftIngredients[i]));
+			MainProxy.sendPacketToServer(
+					PacketHandler.getPacket(SetGhostItemPacket.class).setInteger(36 + 9).setStack(craftTarget));
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 

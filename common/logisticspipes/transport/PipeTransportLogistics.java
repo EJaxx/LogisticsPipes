@@ -30,6 +30,7 @@ import lombok.Data;
 
 import logisticspipes.LPConstants;
 import logisticspipes.api.ILogisticsPowerProvider;
+import logisticspipes.blocks.crafting.LogisticsCraftingTableTileEntity;
 import logisticspipes.blocks.powertile.LogisticsPowerJunctionTileEntity;
 import logisticspipes.interfaces.IBufferItems;
 import logisticspipes.interfaces.IInventoryUtil;
@@ -560,8 +561,8 @@ public class PipeTransportLogistics {
 							}
 						}
 					}
-
-					if (getRoutedPipe().getUpgradeManager() != null && getRoutedPipe().getUpgradeManager() instanceof UpgradeManager && getRoutedPipe().getUpgradeManager().hasPatternUpgrade()) {
+					if (getRoutedPipe().getUpgradeManager() != null && getRoutedPipe().getUpgradeManager() instanceof UpgradeManager
+							&& getRoutedPipe().getUpgradeManager().hasPatternUpgrade() && !(tile instanceof LogisticsCraftingTableTileEntity)) {
 						if (arrivingItem.getAdditionalTargetInformation() instanceof ModuleCrafter.CraftingChassieInformation && util instanceof ISpecialInsertion) {
 							ModuleCrafter.CraftingChassieInformation information = (ModuleCrafter.CraftingChassieInformation) arrivingItem.getAdditionalTargetInformation();
 							int slot = information.getCraftingSlot();

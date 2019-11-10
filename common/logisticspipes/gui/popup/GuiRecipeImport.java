@@ -5,12 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 
+import logisticspipes.gui.GuiCraftingPipe;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.NEISetCraftingRecipe;
 import logisticspipes.network.packets.pipe.FindMostLikelyRecipeComponents;
@@ -36,10 +38,18 @@ public class GuiRecipeImport extends SubGuiScreen {
 		int pos = 0;
 	}
 
-	private final TileEntity tile;
+	private TileEntity tile = null;
+	private GuiCraftingPipe cpGui = null;
+	private ItemStack craftTarget = null;
 	private final Canidates[] grid = new Canidates[9];
 	private final List<Canidates> list;
 	private Object[] tooltip = null;
+
+	public GuiRecipeImport(GuiCraftingPipe cpGui, ItemStack[][] stacks, ItemStack craftTarget) {
+		this(null, stacks);
+		this.cpGui = cpGui;
+		this.craftTarget = craftTarget;
+	}
 
 	public GuiRecipeImport(TileEntity tile, ItemStack[][] stacks) {
 		super(150, 200, 0, 0);
@@ -189,10 +199,14 @@ public class GuiRecipeImport extends SubGuiScreen {
 				stack[i++] = canidate.order.get(canidate.pos).makeNormalStack();
 			}
 			NEISetCraftingRecipe packet = PacketHandler.getPacket(NEISetCraftingRecipe.class);
-			MainProxy.sendPacketToServer(packet.setContent(stack).setBlockPos(tile.getPos()));
+			if (tile != null)
+				MainProxy.sendPacketToServer(packet.setContent(stack).setBlockPos(tile.getPos()));
+			else
+				cpGui.transferRecipe(stack, craftTarget);
 			exitGui();
 		} else if (id == 1) {
-			MainProxy.sendPacketToServer(PacketHandler.getPacket(FindMostLikelyRecipeComponents.class).setContent(list).setTilePos(tile));
+			if (tile != null)
+				MainProxy.sendPacketToServer(PacketHandler.getPacket(FindMostLikelyRecipeComponents.class).setContent(list).setTilePos(tile));
 		} else if (id >= 10 && id < 30) {
 			int slot = id % 10;
 			boolean up = id < 20;

@@ -610,15 +610,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			if (resourceStack == null || resourceStack.getStackSize() == 0) {
 				continue;
 			}
-			boolean found = false;
-			for (String x : LPConstants.ToolFilters) {
-				ItemIdentifier it = resourceStack.getItem();
-				if (!x.startsWith("{"))
-					found |= it.toString().matches(x);
-				else if (it.tag != null)
-					found |= resourceStack.getItem().tag.toString().matches(x);
-			}
-			if (found)
+			if (isTool(resourceStack.getItem()))
 				continue;
 			IResource req;
 			if (getUpgradeManager().isFuzzyUpgrade() && fuzzyCraftingFlagArray[i].getBitSet().nextSetBit(0) != -1) {
@@ -665,6 +657,36 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		}
 
 		return template;
+	}
+
+	public static boolean isTool(ItemIdentifier it) {
+		for (String x : LPConstants.ToolFilters) {
+			if (x.startsWith("!"))
+				x = x.substring(1);
+			if (!x.startsWith("\\{")) {
+				if (it.toString().matches(x))
+					return true;
+			} else if (it.tag != null) {
+				if (it.tag.toString().matches(x))
+					return true;
+			}
+		}
+		return false;
+	}
+
+	public static boolean isSharedTool(ItemIdentifier it) {
+		for (String x : LPConstants.ToolFilters) {
+			if (x.startsWith("!"))
+				continue;
+			if (!x.startsWith("\\{")) {
+				if (it.toString().matches(x))
+					return true;
+			} else if (it.tag != null) {
+				if (it.tag.toString().matches(x))
+					return true;
+			}
+		}
+		return false;
 	}
 
 	public boolean isSatelliteConnected() {
@@ -1120,7 +1142,11 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			}
 
 			if (nextOrder.getDestination() != null && nextOrder.getInformation() instanceof CraftingChassieInformation &&
-					(nextOrder.getDestination() instanceof ModuleCrafter) && ((ModuleCrafter) nextOrder.getDestination()).slot != ModulePositionType.IN_PIPE) {
+					(nextOrder.getDestination() instanceof ModuleCrafter) && (((ModuleCrafter) nextOrder.getDestination()).slot != ModulePositionType.IN_PIPE)) {
+				if (nextOrder.getDestination().getRouter().getSimpleID() != getRouter().getSimpleID()) {
+					System.err.println("Loopback cancelled");
+					continue;
+				}
 				CrafterBarrier.LogisticsModuleValue destModule = new CrafterBarrier.LogisticsModuleValue();
 				int maxToSend = CrafterBarrier.maxSend(nextOrder, extracted.getCount(), destModule, true);
 				if (maxToSend <= 0) {
@@ -1129,7 +1155,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				}
 
 				ItemStack stackToSend = extracted.splitStack(Math.min(maxToSend, nextOrder.getAmount()));
-				// System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to CraftingChassieInformation");
+				System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to CraftingChassieInformation");
 
 				IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
 				item.setTransportMode(TransportMode.Active);
@@ -1149,7 +1175,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 				if (maxToSend >= 0) {
 					ItemStack stackToSend = extracted.splitStack(maxToSend);
-					// System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to IItemSpaceControl");
+					System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to IItemSpaceControl");
 
 					IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
 					item.setTransportMode(TransportMode.Active);
@@ -1163,7 +1189,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				}
 			} else {
 				ItemStack stackToSend = extracted.splitStack(nextOrder.getAmount());
-				// System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to simple");
+				System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to simple");
 
 				IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
 				item.setTransportMode(TransportMode.Active);
@@ -1186,7 +1212,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			}
 
 			ItemStack stackToSend = extracted.splitStack(nextOrder.getAmount());
-			// System.err.println("Stored up "+ItemIdentifierStack.getFromStack(stackToSend)+" for "+nextOrder.getDestination());
+			System.err.println("Stored up "+ItemIdentifierStack.getFromStack(stackToSend)+" for "+nextOrder.getDestination());
 
 			IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
 			item.setTransportMode(TransportMode.Active);
@@ -1237,6 +1263,8 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				myBarrierRecipe.connectedTileEntity = firstNeighbor == null ? null : firstNeighbor.getTileEntity();
 				myBarrierRecipe.shapeless = !getUpgradeManager().hasPatternUpgrade();
 			}
+			if (myBarrierRecipe.parent != null && myBarrierRecipe.parent.current != null)
+				myBarrierRecipe.parent.current.tryUnlock();
 		}
 
 		if (!_service.isNthTick(6)) {
@@ -1316,7 +1344,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			_service.getCacheHolder().trigger(CacheTypes.Inventory);
 			lastAccessedCrafter = new WeakReference<>(adjacent.getTileEntity());
 			// send the new crafted items to the destination
-			// System.err.println("ModuleCrafter extracted "+ItemIdentifierStack.getFromStack(extracted));
+			System.err.println("ModuleCrafter extracted "+ItemIdentifierStack.getFromStack(extracted));
 			feedOrders(extracted, adjacent.getDirection());
 			if (adjacent.getTileEntity() instanceof LogisticsCraftingTableTileEntity && myBarrierRecipe.parent != null && myBarrierRecipe.parent.current != null)
 				myBarrierRecipe.parent.current.tryUnlock(); // still possible before extracting all
