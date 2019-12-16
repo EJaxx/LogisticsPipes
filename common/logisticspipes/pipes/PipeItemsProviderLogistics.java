@@ -38,15 +38,12 @@ import logisticspipes.interfaces.IInventoryUtil;
 import logisticspipes.interfaces.IOrderManagerContentReceiver;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IFilter;
-import logisticspipes.interfaces.routing.IItemSpaceControl;
 import logisticspipes.interfaces.routing.IProvideItems;
 import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.logistics.LogisticsManager;
 import logisticspipes.logisticspipes.ExtractionMode;
 import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.logisticspipes.IRoutedItem.TransportMode;
-import logisticspipes.modules.CrafterBarrier;
-import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.modules.ModuleProvider;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.GuiIDs;
@@ -96,31 +93,33 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 	public final LinkedList<ItemIdentifierStack> itemListOrderer = new LinkedList<>();
 	private final HUDProvider HUD = new HUDProvider(this);
 
-	protected LogisticsItemOrderManager _orderManager = new LogisticsItemOrderManager(this, this);
+	// protected LogisticsItemOrderManager _orderManager = new LogisticsItemOrderManager(this, this);
 	private boolean doContentUpdate = true;
 
 	protected ModuleProvider myModule;
 
 	public PipeItemsProviderLogistics(Item item) {
 		super(item);
+		_orderItemManager = new LogisticsItemOrderManager(this,this);
 	}
 
 	public PipeItemsProviderLogistics(Item item, LogisticsItemOrderManager logisticsOrderManager) {
 		this(item);
-		_orderManager = logisticsOrderManager;
+		// _orderManager = logisticsOrderManager;
+		_orderItemManager = logisticsOrderManager == null ? new LogisticsItemOrderManager(this,this) : logisticsOrderManager;
 		myModule = new ModuleProvider();
 		myModule.registerHandler(this, this);
 	}
 
 	@Override
 	public LogisticsItemOrderManager getItemOrderManager() {
-		return _orderManager;
+		return _orderItemManager;
 	}
 
 	@Override
 	public void onAllowedRemoval() {
-		while (_orderManager.hasOrders(ResourceType.PROVIDER)) {
-			_orderManager.sendFailed();
+		while (_orderItemManager.hasOrders(ResourceType.PROVIDER)) {
+			_orderItemManager.sendFailed();
 		}
 	}
 
@@ -154,7 +153,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 		return 1;
 	}
 
-	private int sendStack(ItemIdentifierStack stack, int maxCount, int destination, IAdditionalTargetInformation info, ModuleCrafter destModule) {
+	private int sendStack(ItemIdentifierStack stack, int maxCount, int destination, IAdditionalTargetInformation info) {
 		ItemIdentifier item = stack.getItem();
 
 		final Iterator<Pair<IInventoryUtil, EnumFacing>> iterator = new WorldCoordinatesWrapper(container)
@@ -178,20 +177,20 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 			wanted = Math.min(wanted, item.getMaxStackSize());
 			IRouter dRtr = SimpleServiceLocator.routerManager.getRouterUnsafe(destination, false);
 			if (dRtr == null) {
-				_orderManager.sendFailed();
+				_orderItemManager.sendFailed();
 				return 0;
 			}
 			SinkReply reply = LogisticsManager.canSink(dRtr, null, true, stack.getItem(), null, true, false);
 			boolean defersend = false;
 //			if (reply == null && (dRtr.getPipe() instanceof IItemSpaceControl)) {// these are aware
-//				_orderManager.deferSend();
+//				_orderItemManager.deferSend();
 //				return 0;
 //			}
 			if (reply != null) {// some pipes are not aware of the space in the adjacent inventory, so they return null
 				if (reply.maxNumberOfItems < wanted) {
 					wanted = reply.maxNumberOfItems;
 					if (wanted <= 0) {
-						_orderManager.deferSend();
+						_orderItemManager.deferSend();
 						return 0;
 					}
 					defersend = true;
@@ -214,14 +213,11 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 			routedItem.setAdditionalTargetInformation(info);
 			super.queueRoutedItem(routedItem, next.getValue2());
 
-			if (destModule != null)
-				destModule.myBarrierRecipe.enterBarrier(routedItem);
-
-			_orderManager.sendSuccessfull(sent, defersend, routedItem);
+			_orderItemManager.sendSuccessfull(sent, defersend, routedItem);
 			return sent;
 		}
 
-		_orderManager.sendFailed();
+		_orderItemManager.sendFailed();
 		return 0;
 	}
 
@@ -238,7 +234,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 		if (!isEnabled()) {
 			return 0;
 		}
-		return getTotalItemCount(item) - _orderManager.totalItemsCountInOrders(item);
+		return getTotalItemCount(item) - _orderItemManager.totalItemsCountInOrders(item);
 	}
 
 	@Override
@@ -253,7 +249,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 			checkContentUpdate(null);
 		}
 
-		if (!_orderManager.hasOrders(ResourceType.PROVIDER) || getWorld().getTotalWorldTime() % 6 != 0) {
+		if (!_orderItemManager.hasOrders(ResourceType.PROVIDER) || getWorld().getTotalWorldTime() % 6 != 0) {
 			return;
 		}
 
@@ -262,23 +258,25 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 		LogisticsItemOrder firstOrder = null;
 		LogisticsItemOrder order = null;
 		// if (isNthTick(20))
-		while (itemsleft > 0 && stacksleft > 0 && _orderManager.hasOrders(ResourceType.PROVIDER) && (firstOrder == null || firstOrder != order)) {
+		while (itemsleft > 0 && stacksleft > 0 && _orderItemManager.hasOrders(ResourceType.PROVIDER) && (firstOrder == null || firstOrder != order)) {
 			if (firstOrder == null || firstOrder.getAmount() <= 0) {
 				firstOrder = order;
 			}
-			order = _orderManager.peekAtTopRequest(ResourceType.PROVIDER);
-
-			CrafterBarrier.LogisticsModuleValue destModule = new CrafterBarrier.LogisticsModuleValue();
-			int maxToSend = CrafterBarrier.maxSend(order, itemsleft, destModule, false);
-			if (maxToSend <= 0) {
-				_orderManager.deferSend();
-				continue;
+			order = _orderItemManager.peekAtTopRequest(ResourceType.PROVIDER);
+			int maxToSend = Math.min(itemsleft, order.getAmount());
+			Integer v = null;
+			if (order.deliveryLine != null) {
+				v = order.deliveryLine.orderBarrier.get();
+				maxToSend = Math.min(maxToSend, v);
+				order.deliveryLine.orderBarrier.getAndAdd(-v);
 			}
 
-			int sent = sendStack(order.getResource().stack, maxToSend, order.getRouter().getSimpleID(), order.getInformation(), destModule.value);
+			int sent = sendStack(order.getResource().stack, maxToSend, order.getRouter().getSimpleID(), order.getInformation());
 			if (sent < 0) {
 				break;
 			}
+			if (v != null)
+				order.deliveryLine.orderBarrier.getAndAdd(v-sent);
 			spawnParticle(Particles.VioletParticle, 3);
 			stacksleft -= 1;
 			itemsleft -= sent;
@@ -331,7 +329,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 	@Override
 	public LogisticsOrder fullFill(LogisticsPromise promise, IRequestItems destination, IAdditionalTargetInformation info) {
 		spawnParticle(Particles.WhiteParticle, 2);
-		return _orderManager.addOrder(new ItemIdentifierStack(promise.item, promise.numberOfItems), destination, ResourceType.PROVIDER, info);
+		return _orderItemManager.addOrder(new ItemIdentifierStack(promise.item, promise.numberOfItems), destination, ResourceType.PROVIDER, info);
 	}
 
 	@Override
@@ -371,7 +369,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 
 		// reduce what has been reserved, add.
 		for (Entry<ItemIdentifier, Integer> item : addedItems.entrySet()) {
-			int remaining = item.getValue() - _orderManager.totalItemsCountInOrders(item.getKey());
+			int remaining = item.getValue() - _orderItemManager.totalItemsCountInOrders(item.getKey());
 			if (remaining < 1) {
 				continue;
 			}
@@ -429,7 +427,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 
 	private void checkContentUpdate(EntityPlayer player) {
 		doContentUpdate = false;
-		LinkedList<ItemIdentifierStack> all = _orderManager.getContentList(getWorld());
+		LinkedList<ItemIdentifierStack> all = _orderItemManager.getContentList(getWorld());
 		if (!oldManagerList.equals(all)) {
 			oldManagerList.clear();
 			oldManagerList.addAll(all);
@@ -487,7 +485,7 @@ public class PipeItemsProviderLogistics extends CoreRoutedPipe implements IProvi
 
 	@Override
 	public double getLoadFactor() {
-		return (_orderManager.totalAmountCountInAllOrders() + 63) / 64.0;
+		return (_orderItemManager.totalAmountCountInAllOrders() + 63) / 64.0;
 	}
 
 	// import from logic

@@ -45,6 +45,7 @@ public class CraftingModuleSlot extends ModuleCoordinatesGuiProvider {
 	@Getter
 	@Setter
 	private boolean cleanupExclude;
+	private boolean[] redirectToSatellite;
 
 	public CraftingModuleSlot(int id) {
 		super(id);
@@ -57,7 +58,7 @@ public class CraftingModuleSlot extends ModuleCoordinatesGuiProvider {
 			return null;
 		}
 		return new GuiCraftingPipe(player, module.getDummyInventory(), module, isAdvancedSat, liquidCrafter, amount, hasByproductExtractor, isFuzzy,
-				cleanupSize, cleanupExclude);
+				cleanupSize, cleanupExclude, redirectToSatellite);
 	}
 
 	@Override
@@ -91,6 +92,7 @@ public class CraftingModuleSlot extends ModuleCoordinatesGuiProvider {
 				dummy.addDummySlot(Y * 3 + X, module.getCleanupInventory(), X * 18 - 57, Y * 18 + 13);
 			}
 		}
+		redirectToSatellite = module.redirectToSatellite.clone();
 
 		return dummy;
 	}
@@ -110,6 +112,7 @@ public class CraftingModuleSlot extends ModuleCoordinatesGuiProvider {
 		output.writeBoolean(isFuzzy);
 		output.writeInt(cleanupSize);
 		output.writeBoolean(cleanupExclude);
+		output.writeBooleanArray(redirectToSatellite);
 	}
 
 	@Override
@@ -122,5 +125,6 @@ public class CraftingModuleSlot extends ModuleCoordinatesGuiProvider {
 		isFuzzy = input.readBoolean();
 		cleanupSize = input.readInt();
 		cleanupExclude = input.readBoolean();
+		redirectToSatellite = input.readBooleanArray();
 	}
 }

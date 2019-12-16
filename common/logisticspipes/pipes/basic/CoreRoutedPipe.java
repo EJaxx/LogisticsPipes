@@ -115,7 +115,6 @@ import logisticspipes.security.PermissionException;
 import logisticspipes.security.SecuritySettings;
 import logisticspipes.textures.Textures;
 import logisticspipes.textures.Textures.TextureType;
-import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.transport.LPTravelingItem.LPTravelingItemServer;
 import logisticspipes.transport.PipeTransportLogistics;
 import logisticspipes.utils.CacheHolder;
@@ -184,7 +183,6 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 	private boolean isOpaqueClientSide = false;
 
 	private CacheHolder cacheHolder;
-	public CrafterBarrier crafterBarrier = new CrafterBarrier();
 
 	public CoreRoutedPipe(Item item) {
 		this(new PipeTransportLogistics(true), item);
@@ -1305,21 +1303,6 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 		}
 	}
 
-	public void notifyOfItemArival(LPTravelingItem.LPTravelingItemServer traveler) {
-		if (this instanceof IRequireReliableTransport) {
-			((IRequireReliableTransport) this).itemArrived(traveler);
-		}
-//		if (this instanceof IRequireReliableFluidTransport) {
-//			ItemIdentifierStack stack = information.getItem();
-//			if (stack.getItem().isFluidContainer()) {
-//				FluidIdentifierStack liquid = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(stack);
-//				if (liquid != null) {
-//					((IRequireReliableFluidTransport) this).liquidArrived(liquid.getFluid(), liquid.getAmount());
-//				}
-//			}
-//		}
-	}
-
 	@Override
 	public int countOnRoute(ItemIdentifier it) {
 		int count = 0;
@@ -1839,6 +1822,12 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 	@Override
 	public IHighlightPlacementRenderer getHighlightRenderer() {
 		return LogisticsRenderPipe.secondRenderer;
+	}
+
+	public void clearOrders() {
+		getOrderManager().clearOrders();
+		if (getLogisticsModule() != null)
+			getLogisticsModule().clearOrders();
 	}
 
 	public enum ItemSendMode {

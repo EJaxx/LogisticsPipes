@@ -18,11 +18,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
-import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.interfaces.routing.IRequireReliableFluidTransport;
 import logisticspipes.interfaces.routing.IRequireReliableTransport;
 import logisticspipes.items.LogisticsFluidContainer;
 import logisticspipes.logisticspipes.IRoutedItem;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
 import logisticspipes.proxy.MainProxy;
@@ -193,8 +193,6 @@ public abstract class LPTravelingItem {
 
 		@Getter
 		private ItemRoutingInformation info;
-		public IRequestItems nextDestination;
-		public IAdditionalTargetInformation nextDestInfo;
 
 		public LPTravelingItemServer(ItemIdentifierStack stack) {
 			super();
@@ -321,7 +319,7 @@ public abstract class LPTravelingItem {
 			info._doNotBuffer = false;
 			info.arrived = false;
 			info._transportMode = TransportMode.Unknown;
-			info.targetInfo = null;
+			setAdditionalTargetInformation(null);
 		}
 
 		public void itemWasLost() {
@@ -464,12 +462,6 @@ public abstract class LPTravelingItem {
 		}
 
 		@Override
-		public void setNextDest(IRequestItems nextDestination, IAdditionalTargetInformation nextDestInfo) {
-			this.nextDestination = nextDestination;
-			this.nextDestInfo = nextDestInfo;
-		}
-
-		@Override
 		public IDistanceTracker getDistanceTracker() {
 			return info.tracker;
 		}
@@ -480,7 +472,17 @@ public abstract class LPTravelingItem {
 
 		@Override
 		public void setAdditionalTargetInformation(IAdditionalTargetInformation targetInfo) {
+			if ((info.targetInfo == null && targetInfo == null) || (info.targetInfo != null && info.targetInfo.equals(targetInfo)))
+				return;
+			if (info.targetInfo instanceof ModuleCrafter.CraftingChassieInformation) {
+				ModuleCrafter.CraftingChassieInformation cInfo = (ModuleCrafter.CraftingChassieInformation) info.targetInfo;
+				cInfo.deliveryLine.dst(this, false);
+			}
 			info.targetInfo = targetInfo;
+			if (targetInfo instanceof ModuleCrafter.CraftingChassieInformation) {
+				ModuleCrafter.CraftingChassieInformation cInfo = (ModuleCrafter.CraftingChassieInformation) targetInfo;
+				cInfo.deliveryLine.dst(this, true);
+			}
 		}
 
 		@Override

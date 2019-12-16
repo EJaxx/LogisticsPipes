@@ -14,6 +14,7 @@ import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.request.IExtraPromise;
 import logisticspipes.request.IPromise;
 import logisticspipes.request.resources.DictResource;
+import logisticspipes.request.resources.FluidResource;
 import logisticspipes.request.resources.IResource;
 import logisticspipes.request.resources.ItemResource;
 import logisticspipes.routing.order.IOrderInfoProvider;
@@ -77,6 +78,8 @@ public class LogisticsPromise implements IPromise {
 			destination = ((ItemResource) requestType).getTarget();
 		} else if (requestType instanceof DictResource) {
 			destination = ((DictResource) requestType).getTarget();
+		} else if (requestType instanceof FluidResource) {
+			destination = ((FluidResource) requestType).getItemTarget();
 		} else {
 			throw new UnsupportedOperationException();
 		}

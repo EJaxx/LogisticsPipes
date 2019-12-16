@@ -39,7 +39,7 @@ public class CraftingModuleInHand extends ModuleInHandGuiProvider {
 			return null;
 		}
 		return new GuiCraftingPipe(player, ((ModuleCrafter) module).getDummyInventory(), ((ModuleCrafter) module), false, 0, amount, false, false, 0,
-				cleanupExclude);
+				cleanupExclude, ((ModuleCrafter) module).redirectToSatellite);
 	}
 
 	@Override
@@ -71,6 +71,7 @@ public class CraftingModuleInHand extends ModuleInHandGuiProvider {
 		super.writeData(output);
 		output.writeIntArray(amount);
 		output.writeBoolean(cleanupExclude);
+//		output.writeBooleanArray(redirectToSatellite);
 	}
 
 	@Override
@@ -78,5 +79,6 @@ public class CraftingModuleInHand extends ModuleInHandGuiProvider {
 		super.readData(input);
 		amount = input.readIntArray();
 		cleanupExclude = input.readBoolean();
+//		redirectToSatellite = input.readBooleanArray();
 	}
 }

@@ -1,7 +1,6 @@
 package logisticspipes.utils;
 
 import java.util.function.Function;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 import net.minecraft.block.state.IBlockState;

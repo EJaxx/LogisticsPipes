@@ -89,7 +89,6 @@ import logisticspipes.security.SecuritySettings;
 import logisticspipes.textures.Textures;
 import logisticspipes.textures.Textures.TextureType;
 import logisticspipes.ticks.HudUpdateTick;
-import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.utils.EnumFacingUtil;
 import logisticspipes.utils.ISimpleInventoryEventHandler;
 import logisticspipes.utils.PlayerCollectionList;
@@ -131,8 +130,8 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 	@Override
 	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
 		_module.addProbeInfo(mode, probeInfo, player, world, blockState, data);
-		if (crafterBarrier.current != null)
-			crafterBarrier.current.addProbeInfo(mode, probeInfo, player, world, blockState, data);
+//		if (crafterBarrier.current != null)
+//			crafterBarrier.current.addProbeInfo(mode, probeInfo, player, world, blockState, data);
 	}
 
 	@Override
@@ -312,24 +311,6 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 				}
 			} else {
 				if (LPConstants.DEBUG && info != null) {
-					System.out.println(item);
-					new RuntimeException("[ItemArrived] Information weren't ment for a chassi pipe").printStackTrace();
-				}
-			}
-		}
-	}
-
-	@Override
-	public void itemArrived(LPTravelingItem.LPTravelingItemServer traveler) {
-		if (MainProxy.isServer(getWorld())) {
-			if (traveler.getAdditionalTargetInformation() instanceof ChassiTargetInformation) {
-				ChassiTargetInformation target = (ChassiTargetInformation) traveler.getAdditionalTargetInformation();
-				LogisticsModule module = _module.getSubModule(target.moduleSlot);
-				if (module instanceof IRequireReliableTransport) {
-					((IRequireReliableTransport) module).itemArrived(traveler);
-				}
-			} else {
-				if (LPConstants.DEBUG && traveler.getAdditionalTargetInformation() != null) {
 					System.out.println(item);
 					new RuntimeException("[ItemArrived] Information weren't ment for a chassi pipe").printStackTrace();
 				}

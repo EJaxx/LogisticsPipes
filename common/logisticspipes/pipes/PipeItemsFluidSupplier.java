@@ -112,17 +112,20 @@ public class PipeItemsFluidSupplier extends CoreRoutedPipe implements IRequestIt
 		if (data.getItemIdentifierStack() == null) {
 			return;
 		}
-		FluidIdentifierStack liquidId = FluidIdentifierStack.getFromStack(data.getItemIdentifierStack());
+		// FluidIdentifierStack liquidId = FluidIdentifierStack.getFromStack(data.getItemIdentifierStack()); // Bug!!!
+		FluidIdentifierStack liquidId = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(data.getItemIdentifierStack());
 		if (liquidId == null) {
 			return;
 		}
-		while (data.getItemIdentifierStack().getStackSize() > 0 && util.fill(liquidId, false) == liquidId.getAmount() && this.useEnergy(5)) {
+		while (data.getItemIdentifierStack().getStackSize() > 0 && util.fill(liquidId, false) == liquidId.getAmount() && canUseEnergy(5)) {
 			util.fill(liquidId, true);
+			useEnergy(5);
 			data.getItemIdentifierStack().lowerStackSize(1);
 			Item item = data.getItemIdentifierStack().getItem().item;
 			if (item.hasContainerItem(data.getItemIdentifierStack().makeNormalStack())) {
 				Item containerItem = item.getContainerItem();
-				transport.sendItem(new ItemStack(containerItem, 1));
+				if (containerItem != null)
+					transport.sendItem(new ItemStack(containerItem, 1));
 			}
 		}
 	}
@@ -302,11 +305,6 @@ public class PipeItemsFluidSupplier extends CoreRoutedPipe implements IRequestIt
 		delayThrottle();
 	}
 
-	@Override
-	public void itemArrived(LPTravelingItemServer traveler) {
-
-	}
-
 	public boolean isRequestingPartials() {
 		return _requestPartials;
 	}
@@ -323,5 +321,12 @@ public class PipeItemsFluidSupplier extends CoreRoutedPipe implements IRequestIt
 	/*** GUI ***/
 	public ItemIdentifierInventory getDummyInventory() {
 		return dummyInventory;
+	}
+
+	@Override
+	public void clearOrders() {
+		super.clearOrders();
+		setRequestFailed(false);
+		_requestedItems.clear();
 	}
 }

@@ -19,6 +19,8 @@ import logisticspipes.interfaces.ITankUtil;
 import logisticspipes.interfaces.routing.IRequireReliableFluidTransport;
 import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.logisticspipes.IRoutedItem.TransportMode;
+import logisticspipes.modules.CrafterBarrier;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
@@ -229,7 +231,7 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 		int amount = 0;
 		for (ItemRoutingInformation next : _inTransitToMe) {
 			ItemIdentifierStack item = next.getItem();
-			if (item.getItem().isFluidContainer()) {
+			if (item.getItem().isFluidContainer() && item.getStackSize() > 0) {
 				FluidIdentifierStack liquid = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(item);
 				if (liquid.getFluid().equals(ident)) {
 					amount += liquid.getAmount();
@@ -247,6 +249,10 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 
 	public boolean endReached(LPTravelingItemServer arrivingItem, TileEntity tile) {
 		if (canInsertToTanks() && MainProxy.isServer(getWorld())) {
+			CrafterBarrier.DeliveryLine deliveryLine = null;
+			if (arrivingItem.getAdditionalTargetInformation() instanceof ModuleCrafter.CraftingChassieInformation) {
+				deliveryLine = ((ModuleCrafter.CraftingChassieInformation) arrivingItem.getAdditionalTargetInformation()).deliveryLine;
+			}
 			getCacheHolder().trigger(CacheTypes.Inventory);
 			if (arrivingItem.getItemIdentifierStack() == null || !(arrivingItem.getItemIdentifierStack().getItem().isFluidContainer())) {
 				return false;
@@ -261,6 +267,10 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 				//Try to put liquid into all adjacent tanks.
 				for (ITankUtil util : adjTanks) {
 					filled = util.fill(liquid, true);
+					if (deliveryLine != null) {
+						System.err.println("+insertedCount " + filled + " into " + deliveryLine);
+						deliveryLine.insertedCount.addAndGet(filled);
+					}
 					liquid.lowerAmount(filled);
 					if (liquid.getAmount() != 0) {
 						continue;
@@ -269,6 +279,10 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 				}
 				//Try inserting the liquid into the pipe side tank
 				filled = ((PipeFluidTransportLogistics) transport).sideTanks[arrivingItem.output.ordinal()].fill(liquid.makeFluidStack(), true);
+				if (deliveryLine != null) {
+					System.err.println("+insertedCount " + filled + " into " + deliveryLine);
+					deliveryLine.insertedCount.addAndGet(filled);
+				}
 				if (filled == liquid.getAmount()) {
 					return true;
 				}
@@ -276,6 +290,10 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 			}
 			//Try inserting the liquid into the pipe internal tank
 			filled = ((PipeFluidTransportLogistics) transport).internalTank.fill(liquid.makeFluidStack(), true);
+			if (deliveryLine != null) {
+				System.err.println("+insertedCount " + filled + " into " + deliveryLine);
+				deliveryLine.insertedCount.addAndGet(filled);
+			}
 			if (filled == liquid.getAmount()) {
 				return true;
 			}

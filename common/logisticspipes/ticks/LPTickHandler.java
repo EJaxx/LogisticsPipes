@@ -21,6 +21,7 @@ import lombok.Setter;
 
 import logisticspipes.LogisticsPipes;
 import logisticspipes.commands.commands.debug.DebugGuiController;
+import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.routing.pathfinder.changedetection.LPWorldAccess;
@@ -47,6 +48,7 @@ public class LPTickHandler {
 		LPTickHandler.adjChecksDone = 0;
 		DebugGuiController.instance().execServer();
 		LogisticsPipes.getGlobalTickExecutor().tick();
+		CrafterBarrier.serverTickAll(event);
 	}
 
 	private static Map<World, LPWorldInfo> worldInfo = new MapMaker().weakKeys().makeMap();

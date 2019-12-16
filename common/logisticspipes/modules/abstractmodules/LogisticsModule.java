@@ -53,6 +53,8 @@ public abstract class LogisticsModule implements ISaveState, ILPCCTypeHolder {
 		this.positionInt = positionInt;
 	}
 
+	public void clearOrders() {}
+
 	public enum ModulePositionType {
 		SLOT(true),
 		IN_HAND(false),

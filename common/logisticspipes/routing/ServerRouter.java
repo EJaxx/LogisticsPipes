@@ -9,6 +9,7 @@ package logisticspipes.routing;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -84,6 +85,12 @@ public class ServerRouter implements IRouter, Comparable<ServerRouter> {
 	static final int REFRESH_TIME = 20;
 	static int iterated = 0;// used pseudp-random to spread items over the tick range
 	int ticksUntillNextInventoryCheck = 0;
+
+	public static void clearOrders() {
+		SimpleServiceLocator.routerManager.getRouters().forEach(o -> {
+			if (o != null) o.getPipe().clearOrders();
+		});
+	}
 
 	@Override
 	public int hashCode() {

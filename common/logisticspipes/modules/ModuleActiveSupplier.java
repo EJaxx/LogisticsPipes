@@ -46,7 +46,6 @@ import logisticspipes.proxy.MainProxy;
 import logisticspipes.request.RequestTree;
 import logisticspipes.routing.IRouter;
 import logisticspipes.routing.pathfinder.IPipeInformationProvider.ConnectionPipeType;
-import logisticspipes.transport.LPTravelingItem;
 import logisticspipes.utils.ISimpleInventoryEventHandler;
 import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.SinkReply;
@@ -482,9 +481,6 @@ public class ModuleActiveSupplier extends LogisticsGuiModule implements IRequest
 		decreaseRequested(item);
 	}
 
-	@Override
-	public void itemArrived(LPTravelingItem.LPTravelingItemServer traveler) {}
-
 	public SupplyMode getSupplyMode() {
 		return _requestMode;
 	}
@@ -616,5 +612,10 @@ public class ModuleActiveSupplier extends LogisticsGuiModule implements IRequest
 			super(getPositionInt());
 		}
 
+	}
+
+	@Override
+	public void clearOrders() {
+		_requestedItems.clear();
 	}
 }

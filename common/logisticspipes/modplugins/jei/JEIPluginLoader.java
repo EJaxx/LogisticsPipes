@@ -1,10 +1,12 @@
 package logisticspipes.modplugins.jei;
 
+import mezz.jei.api.IJeiRuntime;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.IModRegistry;
 import mezz.jei.api.JEIPlugin;
 import mezz.jei.api.recipe.transfer.IRecipeTransferRegistry;
 
+import logisticspipes.LogisticsPipes;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
 
 @JEIPlugin
@@ -15,5 +17,10 @@ public class JEIPluginLoader implements IModPlugin {
 		IRecipeTransferRegistry recipeTransferRegistry = registry.getRecipeTransferRegistry();
 		recipeTransferRegistry.addUniversalRecipeTransferHandler(new RecipeTransferHandler(registry.getJeiHelpers().recipeTransferHandlerHelper()));
 		registry.addGhostIngredientHandler(LogisticsBaseGuiScreen.class, new GhostIngredientHandler());
+	}
+
+	@Override
+	public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
+		LogisticsPipes.jeiRuntime = jeiRuntime;
 	}
 }

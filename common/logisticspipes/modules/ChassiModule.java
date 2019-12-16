@@ -48,6 +48,12 @@ public class ChassiModule extends LogisticsGuiModule {
 		}
 	}
 
+	@Override
+	public void clearOrders() {
+		for (LogisticsModule module : modules)
+			if (module != null) module.clearOrders();
+	}
+
 	public void installModule(int slot, LogisticsModule module) {
 		modules[slot] = module;
 	}

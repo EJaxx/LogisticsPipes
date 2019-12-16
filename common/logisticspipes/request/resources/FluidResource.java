@@ -1,6 +1,7 @@
 package logisticspipes.request.resources;
 
 import logisticspipes.interfaces.routing.IRequestFluid;
+import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.routing.IRouter;
 import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifier;
@@ -46,6 +47,12 @@ public class FluidResource implements IResource {
 
 	public FluidIdentifier getFluid() {
 		return liquid;
+	}
+
+	public IRequestItems getItemTarget() {
+		if (target instanceof IRequestItems)
+			return (IRequestItems) target;
+		return null;
 	}
 
 	public IRequestFluid getTarget() {

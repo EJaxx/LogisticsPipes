@@ -5,14 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 
-import logisticspipes.gui.GuiCraftingPipe;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.NEISetCraftingRecipe;
 import logisticspipes.network.packets.pipe.FindMostLikelyRecipeComponents;
@@ -27,6 +26,13 @@ import logisticspipes.utils.string.StringUtils;
 
 public class GuiRecipeImport extends SubGuiScreen {
 
+	private Function<ItemStack[], Void> cb;
+
+	public GuiRecipeImport(TileEntity tile, ItemStack[][] stacks, Function<ItemStack[], Void> cb) {
+		this(tile, stacks);
+		this.cb = cb;
+	}
+
 	public static class Canidates {
 
 		public Canidates(Set<ItemIdentifierStack> set) {
@@ -38,18 +44,10 @@ public class GuiRecipeImport extends SubGuiScreen {
 		int pos = 0;
 	}
 
-	private TileEntity tile = null;
-	private GuiCraftingPipe cpGui = null;
-	private ItemStack craftTarget = null;
+	private TileEntity tile;
 	private final Canidates[] grid = new Canidates[9];
 	private final List<Canidates> list;
 	private Object[] tooltip = null;
-
-	public GuiRecipeImport(GuiCraftingPipe cpGui, ItemStack[][] stacks, ItemStack craftTarget) {
-		this(null, stacks);
-		this.cpGui = cpGui;
-		this.craftTarget = craftTarget;
-	}
 
 	public GuiRecipeImport(TileEntity tile, ItemStack[][] stacks) {
 		super(150, 200, 0, 0);
@@ -199,10 +197,10 @@ public class GuiRecipeImport extends SubGuiScreen {
 				stack[i++] = canidate.order.get(canidate.pos).makeNormalStack();
 			}
 			NEISetCraftingRecipe packet = PacketHandler.getPacket(NEISetCraftingRecipe.class);
-			if (tile != null)
-				MainProxy.sendPacketToServer(packet.setContent(stack).setBlockPos(tile.getPos()));
+			if (cb != null)
+				cb.apply(stack);
 			else
-				cpGui.transferRecipe(stack, craftTarget);
+				MainProxy.sendPacketToServer(packet.setContent(stack).setBlockPos(tile.getPos()));
 			exitGui();
 		} else if (id == 1) {
 			if (tile != null)

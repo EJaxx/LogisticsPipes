@@ -51,6 +51,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 
+import net.minecraftforge.fluids.FluidStack;
+
 import io.netty.buffer.ByteBuf;
 
 import logisticspipes.network.IReadListObject;
@@ -140,6 +142,8 @@ public interface LPDataInput {
 
 	@Nonnull
 	ItemStack readItemStack();
+
+	FluidStack readFluidStack();
 
 	@Nullable
 	<T> ArrayList<T> readArrayList(IReadListObject<T> reader);

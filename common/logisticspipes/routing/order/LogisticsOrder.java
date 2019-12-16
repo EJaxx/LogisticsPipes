@@ -8,6 +8,8 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
+import logisticspipes.modules.CrafterBarrier;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.routing.IRouter;
 import logisticspipes.utils.item.ItemIdentifier;
 import network.rs485.logisticspipes.world.DoubleCoordinates;
@@ -37,6 +39,7 @@ public abstract class LogisticsOrder implements IOrderInfoProvider {
 	@Setter
 	private byte machineProgress = 0;
 	private List<IDistanceTracker> trackers = new ArrayList<>();
+	public final CrafterBarrier.DeliveryLine deliveryLine;
 
 	public LogisticsOrder(ResourceType type, IAdditionalTargetInformation info) {
 		if (type == null) {
@@ -44,6 +47,12 @@ public abstract class LogisticsOrder implements IOrderInfoProvider {
 		}
 		this.type = type;
 		information = info;
+		deliveryLine = (info instanceof ModuleCrafter.CraftingChassieInformation)
+				? ((ModuleCrafter.CraftingChassieInformation) info).deliveryLine : null;
+		if (deliveryLine != null) {
+			deliveryLine.orders.put(this, true);
+			System.err.println("new order: "+deliveryLine);
+		}
 	}
 
 	@Override

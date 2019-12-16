@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
+import logisticspipes.interfaces.routing.IRequestItems;
 import logisticspipes.logisticspipes.IRoutedItem.TransportMode;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.routing.order.IDistanceTracker;
@@ -43,6 +44,8 @@ public class ItemRoutingInformation {
 		that.tracker = tracker;
 		that.targetInfo = targetInfo;
 		that.item = getItem().clone();
+		that.nextDestInfo = nextDestInfo;
+		that.nextDestination = nextDestination;
 		return that;
 	}
 
@@ -55,6 +58,8 @@ public class ItemRoutingInformation {
 	public List<Integer> jamlist = new ArrayList<>();
 	public IDistanceTracker tracker = null;
 	public IAdditionalTargetInformation targetInfo;
+	public IRequestItems nextDestination;
+	public IAdditionalTargetInformation nextDestInfo;
 
 	private long delay = 640 + MainProxy.getGlobalTick();
 

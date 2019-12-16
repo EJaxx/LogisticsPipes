@@ -79,11 +79,13 @@ public class PipeItemsSupplierLogistics extends CoreRoutedPipe implements IReque
 	}
 
 	@Override
-	public void itemArrived(LPTravelingItem.LPTravelingItemServer traveler) {}
-
-	@Override
 	public void addStatusInformation(List<StatusEntry> status) {
 		super.addStatusInformation(status);
 		module.addStatusInformation(status);
+	}
+
+	@Override
+	public void clearOrders() {
+		module.clearOrders();
 	}
 }

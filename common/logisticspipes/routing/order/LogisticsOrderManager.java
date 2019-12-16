@@ -93,7 +93,7 @@ public abstract class LogisticsOrderManager<T extends LogisticsOrder, I> impleme
 		}
 		T top = (T) _orders.getFirst().setInProgress(true);
 		int loopCount = 0;
-		while (!typeList.contains(top.getType())) {
+		while ((top.deliveryLine != null && top.getType() == ResourceType.PROVIDER && top.deliveryLine.orderBarrier.get() <= 0) || !typeList.contains(top.getType())) {
 			loopCount++;
 			if (loopCount > _orders.size()) {
 				return null;
@@ -211,5 +211,13 @@ public abstract class LogisticsOrderManager<T extends LogisticsOrder, I> impleme
 
 	public int size() {
 		return _orders.size();
+	}
+
+	public void clearOrders() {
+		while (!_orders.isEmpty()) {
+			T order = _orders.removeFirst();
+			order.setFinished(true);
+			order.setInProgress(false);
+		}
 	}
 }

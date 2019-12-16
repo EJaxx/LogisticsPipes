@@ -43,12 +43,16 @@ public class LPConstants {
 		LPConstants.COREMOD_LOADED = true;
 	}
 
-	public static final String ToolFilters[] = {
-			"!GregTech Community Edition:Integrated circuit.+",
-			"!GregTech Community Edition:Extruder Shape .+",
-			"!GregTech Community Edition:Mold .+",
-			"!GregTech Community Edition:.+ Lens.+",
+	public static final String ConfiguratorFilters[] = {
+			"GregTech Community Edition:Programmed Circuit.+",
+			"GregTech Community Edition:Extruder Shape .+",
+			"GregTech Community Edition:Mold .+",
+			"GregTech Community Edition:.+ Lens.+",
 			"Logistics Pipes:Logistics Programmer.+",
+			"logisticspipes:item.logisticspipes.logistics_programmer.+",
+	};
+
+	public static final String ToolFilters[] = {
 			"\\{GT.ToolStats:\\{.+\\}",
 	};
 

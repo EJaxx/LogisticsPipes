@@ -8,6 +8,8 @@ import logisticspipes.interfaces.IChangeListener;
 import logisticspipes.interfaces.ILPPositionProvider;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IRequestItems;
+import logisticspipes.modules.CrafterBarrier;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.request.resources.DictResource;
 import logisticspipes.routing.order.IOrderInfoProvider.ResourceType;
 import logisticspipes.utils.item.ItemIdentifier;
@@ -53,11 +55,12 @@ public class LogisticsItemOrderManager extends LogisticsOrderManager<LogisticsIt
 	}
 
 	public LogisticsItemOrder addOrder(ItemIdentifierStack stack, IRequestItems requester, ResourceType type, IAdditionalTargetInformation info) {
-		for (LogisticsItemOrder x : _orders)
-			if (x.getDestination() == requester && x.getInformation() == info && x.getResource().getItem().equals(stack.getItem())) {
-				x.reduceAmountBy(-stack.getStackSize());
-				return x;
-			}
+		System.err.println("addOrder: " + stack + ", " + requester + ", " + type + ", " + info);
+		if (info instanceof ModuleCrafter.CraftingChassieInformation) {
+			CrafterBarrier.DeliveryLine line = ((ModuleCrafter.CraftingChassieInformation) info).deliveryLine;
+			if (line != null)
+				System.err.println("recipe: " + line.group.owner.getCraftedItem() + ", to slot: "+line.assignedSlot);
+		}
 		LogisticsItemOrder order = new LogisticsItemOrder(new DictResource(stack, null), requester, type, info);
 		_orders.addLast(order);
 		listen();

@@ -79,6 +79,10 @@ public class LogisticsOrderLinkedList<E extends LogisticsOrder, I> implements It
 		return unmodifiable.iterator();
 	}
 
+	public List<E> unmodifiableList() {
+		return unmodifiable;
+	}
+
 	public boolean hasExtras() {
 		return globalExtraCount != 0;
 	}

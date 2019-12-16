@@ -63,6 +63,10 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidRegistry;
+import net.minecraftforge.fluids.FluidStack;
+
 import io.netty.buffer.ByteBuf;
 import static io.netty.buffer.Unpooled.buffer;
 import static io.netty.buffer.Unpooled.wrappedBuffer;
@@ -339,6 +343,17 @@ public final class LPDataIOWrapper implements LPDataInput, LPDataOutput {
 	}
 
 	@Override
+	public void writeFluidStack(FluidStack fluidstack) {
+		if (fluidstack == null) {
+			writeUTF("");
+		} else {
+			writeUTF(FluidRegistry.getFluidName(fluidstack.getFluid()));
+			writeInt(fluidstack.amount);
+			writeNBTTagCompound(fluidstack.tag);
+		}
+	}
+
+	@Override
 	public void writeItemIdentifier(@Nullable ItemIdentifier item) {
 		if (item == null) {
 			writeInt(0);
@@ -600,7 +615,10 @@ public final class LPDataIOWrapper implements LPDataInput, LPDataOutput {
 
 		int damage = readInt();
 		NBTTagCompound tag = readNBTTagCompound();
-		return ItemIdentifier.get(Item.getItemById(itemId), damage, tag);
+		Item item = Item.getItemById(itemId);
+		if (item == null) // weird crashes
+			return null;
+		return ItemIdentifier.get(item, damage, tag);
 	}
 
 	@Nullable
@@ -628,6 +646,22 @@ public final class LPDataIOWrapper implements LPDataInput, LPDataOutput {
 		ItemStack stack = new ItemStack(Item.getItemById(itemId), stackSize, damage);
 		// may be null, see code
 		stack.setTagCompound(readNBTTagCompound());
+		return stack;
+	}
+
+	@Override
+	public FluidStack readFluidStack() {
+		final String fluidName = readUTF();
+		if (fluidName.isEmpty())
+			return null;
+
+		int stackSize = readInt();
+		NBTTagCompound tag = readNBTTagCompound();
+		Fluid fluid = FluidRegistry.getFluid(fluidName);
+		if (fluid == null)
+			return null;
+		FluidStack stack = new FluidStack(fluid, stackSize);
+		stack.tag = tag;
 		return stack;
 	}
 

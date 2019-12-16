@@ -4,6 +4,8 @@ import lombok.Getter;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IRequestFluid;
+import logisticspipes.modules.CrafterBarrier;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.routing.IRouter;
 import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
@@ -18,6 +20,11 @@ public class LogisticsFluidOrder extends LogisticsOrder {
 		fluid = fuild;
 		this.amount = amount;
 		this.destination = destination;
+
+		if (info instanceof ModuleCrafter.CraftingChassieInformation) {
+			CrafterBarrier.DeliveryLine line = ((ModuleCrafter.CraftingChassieInformation) info).deliveryLine;
+			if (line != null) line.dst(this, true);
+		}
 	}
 
 	@Getter
@@ -44,5 +51,8 @@ public class LogisticsFluidOrder extends LogisticsOrder {
 	@Override
 	public void reduceAmountBy(int reduce) {
 		amount -= reduce;
+		if (amount <= 0 && deliveryLine != null) {
+			deliveryLine.dst(this, false);
+		}
 	}
 }

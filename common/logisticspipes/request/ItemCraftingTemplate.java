@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.ICraftItems;
 import logisticspipes.request.resources.DictResource;
+import logisticspipes.request.resources.FluidResource;
 import logisticspipes.request.resources.IResource;
 import logisticspipes.request.resources.ItemResource;
 import logisticspipes.routing.LogisticsExtraPromise;
@@ -101,7 +102,7 @@ public class ItemCraftingTemplate implements IReqCraftingTemplate {
 	public boolean canCraft(IResource type) {
 		if (type instanceof ItemResource) {
 			return ((ItemResource) type).getItem().equals(_result.getItem());
-		} else if (type instanceof DictResource) {
+		} else if (type instanceof DictResource || type instanceof FluidResource) {
 			return type.matches(_result.getItem(), IResource.MatchSettings.NORMAL);
 		}
 		return false;

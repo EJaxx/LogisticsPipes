@@ -20,13 +20,17 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.client.FMLClientHandler;
 
 import lombok.Getter;
+import mezz.jei.api.recipe.IFocus;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
+import logisticspipes.LogisticsPipes;
 import logisticspipes.config.Configs;
 import logisticspipes.interfaces.ISpecialItemRenderer;
+import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.utils.Color;
+import logisticspipes.utils.FluidIdentifierStack;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.item.ItemStackRenderer;
@@ -510,22 +514,40 @@ public class ItemDisplay {
 		if (requestCountBar.handleClick(x, y, k)) {
 			return true;
 		}
+		ItemIdentifierStack itemStack = itemHover(x, y, k);
+		if (itemStack != null)
+			selectedItem = itemStack;
+		return itemStack != null;
+	}
+
+	public ItemIdentifierStack itemHover(int x, int y, int k) {
 		x -= left;
 		y -= top;
 		if (x < 0 || y < 0 || x > width || y > height) {
-			return false;
+			return null;
 		}
-		selectedItem = null;
 		for (Entry<Pair<Integer, Integer>, ItemIdentifierStack> entry : map.entrySet()) {
 			if (x >= entry.getKey().getValue1() && x < entry.getKey().getValue1() + ItemDisplay.PANELSIZEX && y >= entry.getKey().getValue2() && y < entry.getKey().getValue2() + ItemDisplay.PANELSIZEY) {
-				selectedItem = entry.getValue();
-				return true;
+				return entry.getValue();
 			}
 		}
-		return false;
+		return null;
 	}
 
 	public boolean keyTyped(char c, int i) {
+		if ((c == 'u' || c == 'r') && mc.currentScreen != null) {
+			int x = Mouse.getX() * mc.currentScreen.width / this.mc.displayWidth;
+			int y = mc.currentScreen.height - Mouse.getY() * mc.currentScreen.height / this.mc.displayHeight - 1;
+
+			ItemIdentifierStack item = itemHover(x, y, 0);
+			if (item != null && !item.makeNormalStack().isEmpty()) {
+				FluidIdentifierStack fluid = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(item);
+				LogisticsPipes.jeiRuntime.getRecipesGui().show(
+						LogisticsPipes.jeiRuntime.getRecipeRegistry().createFocus(
+								c == 'u' ? IFocus.Mode.INPUT : IFocus.Mode.OUTPUT,
+								fluid == null ? item.getItem().makeNormalStack(1) : fluid.makeFluidStack()));
+			}
+		}
 		if (!requestCountBar.handleKey(c, i)) {
 			if (i == 30 && Keyboard.isKeyDown(Keyboard.KEY_LCONTROL)) { //Ctrl-a
 				setMaxAmount();

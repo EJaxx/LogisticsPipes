@@ -8,6 +8,7 @@
 package logisticspipes.gui;
 
 import java.io.IOException;
+import java.util.Map;
 
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
@@ -19,6 +20,8 @@ import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.BlockPos;
 
+import net.minecraftforge.fluids.FluidStack;
+
 import lombok.Getter;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -26,7 +29,9 @@ import org.lwjgl.opengl.GL12;
 import logisticspipes.LPItems;
 import logisticspipes.gui.modules.ModuleBaseGui;
 import logisticspipes.gui.popup.GuiSelectSatellitePopup;
+import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.modules.ModuleCrafter;
+import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.SetGhostItemPacket;
 import logisticspipes.network.packets.cpipe.CPipeCleanupImport;
@@ -37,10 +42,12 @@ import logisticspipes.pipes.upgrades.CraftingCleanupUpgrade;
 import logisticspipes.pipes.upgrades.FluidCraftingUpgrade;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.utils.gui.DummyContainer;
+import logisticspipes.utils.gui.GuiCheckBox;
 import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.SmallGuiButton;
 import logisticspipes.utils.gui.extention.GuiExtention;
 import logisticspipes.utils.string.StringUtils;
+import logisticspipes.utils.tuples.Pair;
 
 public class GuiCraftingPipe extends ModuleBaseGui {
 
@@ -50,6 +57,7 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 	private final ModuleCrafter _pipe;
 	private final EntityPlayer _player;
 	private final GuiButton[] normalButtonArray;
+	private final GuiCheckBox[] redirectToSatelliteButtons;
 	private final GuiButton[][] advancedSatButtonArray;
 	private final GuiButton[][] liquidGuiParts;
 	private final boolean isAdvancedSat;
@@ -59,10 +67,11 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 	private final int[] fluidSlotIDs;
 	private final int byproductSlotID;
 	private final int[] cleanupSlotIDs;
+	private final boolean[] redirectToSatellite;
 
 	private GuiButton cleanupModeButton;
 
-	public GuiCraftingPipe(EntityPlayer player, IInventory dummyInventory, ModuleCrafter module, boolean isAdvancedSat, int liquidCrafter, int[] amount, boolean hasByproductExtractor, boolean isFuzzy, int cleanupSize, boolean cleanupExclude) {
+	public GuiCraftingPipe(EntityPlayer player, IInventory dummyInventory, ModuleCrafter module, boolean isAdvancedSat, int liquidCrafter, int[] amount, boolean hasByproductExtractor, boolean isFuzzy, int cleanupSize, boolean cleanupExclude, boolean[] redirectToSatellite) {
 		super(null, module);
 		_player = player;
 		this.isAdvancedSat = isAdvancedSat;
@@ -135,6 +144,8 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 		_pipe = module;
 		_pipe.setFluidAmount(amount);
 		normalButtonArray = new GuiButton[7];
+		this.redirectToSatelliteButtons = new GuiCheckBox[9];
+		this.redirectToSatellite = redirectToSatellite;
 		advancedSatButtonArray = new GuiButton[9][2];
 		for (int i = 0; i < 9; i++) {
 			advancedSatButtonArray[i] = new GuiButton[2];
@@ -159,6 +170,8 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 			if (liquidCrafter != 0) {
 				extention.registerButton(extentionControllerLeft.registerControlledButton(addButton(normalButtonArray[5] = new SmallGuiButton(22, guiLeft - (liquidCrafter * 40) / 2 - 18, guiTop + 158, 37, 10, StringUtils.translate(PREFIX + "Select")))));
 			}
+			for (int i = 0; i < 9; i++)
+				buttonList.add(redirectToSatelliteButtons[i] = new GuiCheckBox(30 + i, (width - xSize) / 2 + 6 + 9 + 18 * i, (height - ySize) / 2 + 36, 12, 8, redirectToSatellite[i])); // to satellite
 		} else {
 			for (int i = 0; i < 9; i++) {
 				addButton(advancedSatButtonArray[i][0] = new SmallGuiButton(30 + i, (width - xSize) / 2 + 9 + 18 * i, (height - ySize) / 2 + 75, 17, 10, StringUtils.translate(PREFIX + "Sel")));
@@ -212,18 +225,6 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 		}
 	}
 
-	public void transferRecipe(ItemStack[] craftIngredients, ItemStack craftTarget) {
-		try {
-			for (int i = 0; i < 9; i++)
-				MainProxy.sendPacketToServer(
-						PacketHandler.getPacket(SetGhostItemPacket.class).setInteger(36 + i).setStack(craftIngredients[i] == null ? ItemStack.EMPTY : craftIngredients[i]));
-			MainProxy.sendPacketToServer(
-					PacketHandler.getPacket(SetGhostItemPacket.class).setInteger(36 + 9).setStack(craftTarget));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
 	@Override
 	protected void actionPerformed(GuiButton guibutton) throws IOException {
 		/*
@@ -232,7 +233,13 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 		}
 		 */
 		if (30 <= guibutton.id && guibutton.id < 40) {
-			openSubGuiForSatelliteSelection(10 + (guibutton.id - 30), false);
+			if (isAdvancedSat)
+				openSubGuiForSatelliteSelection(10 + (guibutton.id - 30), false);
+			else {
+				MainProxy.sendPacketToServer(
+						PacketHandler.getPacket(CrafterBarrier.CraftingPipeToggleSatelliteRedirectionPacket.class).setInteger(guibutton.id - 30).setModulePos(_pipe));
+				((GuiCheckBox) guibutton).change();
+			}
 		}
 		if (100 <= guibutton.id && guibutton.id < 200) {
 			int i = guibutton.id - 100;
@@ -361,7 +368,7 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 		GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, guiLeft + xSize - (hasByproductExtractor ? 40 : 0), guiTop + ySize, zLevel, true, true, true, true, true);
 
 		if (!isAdvancedSat) {
-			Gui.drawRect(guiLeft + 115, guiTop + 4, guiLeft + 170, guiTop + 70, 0xff8B8B8B);
+			// Gui.drawRect(guiLeft + 115, guiTop + 4, guiLeft + 170, guiTop + 70, 0xff8B8B8B); // replaced
 		}
 
 		for (int i = 0; i < 9; i++) {
@@ -379,6 +386,19 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 
 	public void onCleanupModeChange() {
 		cleanupModeButton.displayString = StringUtils.translate(GuiCraftingPipe.PREFIX + (_pipe.cleanupModeIsExclude ? "Exclude" : "Include"));
+	}
+
+	public void transferRecipe(Map<Integer, Pair<Boolean, ItemStack>> itemsJEI, Map<Integer, Pair<Boolean, FluidStack>> fluidsJEI) {
+		boolean inHand = module.getSlot() == LogisticsModule.ModulePositionType.IN_HAND;
+		ModuleCrafter myModule = (ModuleCrafter) module;
+		CrafterBarrier.SetRecipePacket packet = PacketHandler.getPacket(CrafterBarrier.SetRecipePacket.class);
+		packet.setRecipe(inHand, itemsJEI, fluidsJEI);
+		if (!inHand) {
+			packet.setInteger(myModule.getPositionInt())
+					.setBlockPos(myModule.getRouter().getPipe().getPos())
+					.setDimension(myModule.getRouter().getPipe().getWorld());
+		}
+		MainProxy.sendPacketToServer(packet);
 	}
 
 	private final class FluidCraftingExtention extends GuiExtention {

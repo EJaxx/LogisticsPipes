@@ -190,6 +190,8 @@ public class ItemIdentifierInventory implements IInventory, ISaveState, ILPCCTyp
 
 	public void readFromNBT(NBTTagCompound nbttagcompound, String prefix) {
 		NBTTagList nbttaglist = nbttagcompound.getTagList(prefix + "items", nbttagcompound.getId());
+		for (int index = 0; index < getSizeInventory(); ++index)
+			_contents[index] = null; // Bug?
 
 		for (int j = 0; j < nbttaglist.tagCount(); ++j) {
 			NBTTagCompound nbttagcompound2 = nbttaglist.getCompoundTagAt(j);

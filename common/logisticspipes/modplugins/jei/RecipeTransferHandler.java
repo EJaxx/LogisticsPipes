@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -13,6 +16,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.NonNullList;
 
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.oredict.OreDictionary;
 
 import mezz.jei.api.gui.IGuiIngredient;
@@ -27,11 +31,13 @@ import logisticspipes.gui.GuiCraftingPipe;
 import logisticspipes.gui.GuiLogisticsCraftingTable;
 import logisticspipes.gui.orderer.GuiRequestTable;
 import logisticspipes.gui.popup.GuiRecipeImport;
+import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.NEISetCraftingRecipe;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.utils.gui.DummyContainer;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import logisticspipes.utils.tuples.Pair;
 
 public class RecipeTransferHandler implements IRecipeTransferHandler {
 
@@ -47,6 +53,12 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 		return DummyContainer.class;
 	}
 
+	static <X, Y, Z> Map<X, Z> transform(Map<? extends X, ? extends Y> input, Function<Y, Z> function) {
+		return input.keySet().stream()
+				.collect(Collectors.toMap(Function.identity(),
+						key -> function.apply(input.get(key))));
+	}
+
 	@Nullable
 	@Override
 	public IRecipeTransferError transferRecipe(@Nonnull Container container, @Nonnull IRecipeLayout recipeLayout, @Nonnull EntityPlayer player, boolean maxTransfer, boolean doTransfer) {
@@ -55,27 +67,57 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 
 			LogisticsBaseGuiScreen gui = dContainer.guiHolderForJEI;
 
-			if (gui instanceof GuiLogisticsCraftingTable || gui instanceof GuiRequestTable || gui instanceof GuiCraftingPipe) {
+			if (gui instanceof GuiCraftingPipe) {
+				if (!doTransfer) return null;
+				GuiCraftingPipe cpGui = (GuiCraftingPipe) gui;
+
+				AtomicInteger variantCnt = new AtomicInteger(0);
+				ItemStack[][] stacks = new ItemStack[9][];
+				int[] stacksMap = new int[9];
+
+				recipeLayout.getItemStacks().getGuiIngredients().forEach((key, v) -> {
+					List<ItemStack> a = v.getAllIngredients();
+					if (a.size() > 1 && variantCnt.get() < 9) {
+						int x = variantCnt.getAndAdd(1);
+						stacksMap[x] = key;
+						stacks[x] = a.toArray(new ItemStack[0]);
+					}
+				});
+
+				Map<Integer, Pair<Boolean, ItemStack>> items = transform(recipeLayout.getItemStacks().getGuiIngredients(), v -> new Pair<>(v.isInput(), v.getDisplayedIngredient()));
+				Map<Integer, Pair<Boolean, FluidStack>> fluids = transform(recipeLayout.getFluidStacks().getGuiIngredients(), v -> new Pair<>(v.isInput(), v.getDisplayedIngredient()));
 
 				TileEntity tile = null;
+				if (cpGui.get_pipe().getSlot() == LogisticsModule.ModulePositionType.SLOT)
+					tile = cpGui.get_pipe().getRouter().getPipe().getWorld().getTileEntity(cpGui.get_pipe().getRouter().getPipe().getPos());
+
+				if (variantCnt.get() > 0)
+					gui.setSubGui(new GuiRecipeImport(tile, stacks, selected -> {
+						for (int i = 0; i < variantCnt.get(); i++)
+							items.get(stacksMap[i]).setValue2(selected[i]);
+						cpGui.transferRecipe(items, fluids);
+						return null;
+					}));
+				else
+					cpGui.transferRecipe(items, fluids);
+				return null;
+			}
+
+			if (gui instanceof GuiLogisticsCraftingTable || gui instanceof GuiRequestTable) {
+
+				TileEntity tile;
 				if (gui instanceof GuiLogisticsCraftingTable) {
 					tile = ((GuiLogisticsCraftingTable) gui)._crafter;
-				}
-				if (gui instanceof GuiRequestTable) {
+				} else {
 					tile = ((GuiRequestTable) gui)._table.container;
 				}
 
-				if (gui instanceof GuiCraftingPipe) {
-					System.err.println(recipeLayout.getRecipeCategory().getTitle());
-					//return null;
-				}
-
 				if (tile == null) {
-					//					return recipeTransferHandlerHelper.createInternalError();
+					return recipeTransferHandlerHelper.createInternalError();
 				}
 
 				if (!recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING)) {
-					//					return recipeTransferHandlerHelper.createInternalError();
+					return recipeTransferHandlerHelper.createInternalError();
 				}
 
 				ItemStack[] stack = new ItemStack[9];
@@ -86,19 +128,11 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 				IGuiItemStackGroup guiItemStackGroup = recipeLayout.getItemStacks();
 				Map<Integer, ? extends IGuiIngredient<ItemStack>> guiIngredients = guiItemStackGroup.getGuiIngredients();
 
-				ItemStack craftTarget = null;
 				if (doTransfer) {
-					int slot = 0;
 					for (Map.Entry<Integer, ? extends IGuiIngredient<ItemStack>> ps : guiIngredients.entrySet()) {
-						if (!ps.getValue().isInput()) {
-							List<ItemStack> ls = ps.getValue().getAllIngredients();
-							if (craftTarget == null && ls.size() > 0)
-								craftTarget = ls.get(0);
-							continue;
-						}
+						if (!ps.getValue().isInput()) continue;
 
-						if (recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING))
-							slot = ps.getKey() - 1;
+						int slot = ps.getKey() - 1;
 
 						if (slot < 9) {
 							stack[slot] = ps.getValue().getDisplayedIngredient();
@@ -123,28 +157,12 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 								}
 							}
 						}
-						slot++;
 					}
 
-					if (gui instanceof GuiCraftingPipe) {
-						GuiCraftingPipe cpGui = (GuiCraftingPipe) gui;
-						if (hasCanidates) {
-							gui.setSubGui(new GuiRecipeImport(cpGui, stacks, craftTarget));
-						} else
-							cpGui.transferRecipe(stack, craftTarget);
-						return null;
-					}
-
-					if (!recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING)) {
-						return recipeTransferHandlerHelper.createInternalError();
-					}
-
-					if (tile != null) {
-						if (hasCanidates) {
-							gui.setSubGui(new GuiRecipeImport(tile, stacks));
-						} else {
-							MainProxy.sendPacketToServer(packet.setContent(stack).setTilePos(tile));
-						}
+					if (hasCanidates) {
+						gui.setSubGui(new GuiRecipeImport(tile, stacks));
+					} else {
+						MainProxy.sendPacketToServer(packet.setContent(stack).setTilePos(tile));
 					}
 				}
 				return null;

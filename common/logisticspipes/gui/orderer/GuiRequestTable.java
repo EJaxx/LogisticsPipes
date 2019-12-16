@@ -34,6 +34,7 @@ import logisticspipes.gui.popup.RequestMonitorPopup;
 import logisticspipes.interfaces.IChainAddList;
 import logisticspipes.interfaces.IDiskProvider;
 import logisticspipes.interfaces.ISpecialItemRenderer;
+import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.block.ClearCraftingGridPacket;
 import logisticspipes.network.packets.block.CraftingCycleRecipe;
@@ -84,6 +85,7 @@ public class GuiRequestTable extends LogisticsBaseGuiScreen implements IItemSear
 	private IChainAddList<GuiButton> moveWhileSmall = new ChainAddArrayList<>();
 	private IChainAddList<GuiButton> hideWhileSmall = new ChainAddArrayList<>();
 	private GuiButton hideShowButton;
+	private GuiButton resetButton;
 
 	public GuiRequestTable(EntityPlayer entityPlayer, PipeBlockRequestTable table) {
 		super(410, 240, 0, 0);
@@ -161,6 +163,8 @@ public class GuiRequestTable extends LogisticsBaseGuiScreen implements IItemSear
 
 		(sycleButtons[0] = addButton(new SmallGuiButton(21, guiLeft + 124, guiTop + 30, 15, 10, "/\\"))).visible = false;
 		(sycleButtons[1] = addButton(new SmallGuiButton(22, guiLeft + 124, guiTop + 42, 15, 10, "\\/"))).visible = false;
+
+		buttonList.add(resetButton = new SmallGuiButton(23, guiLeft + 173 - 36 - 4, guiTop + 5, 36, 10, "Reset")); // Global reset
 
 		if (search == null) {
 			search = new InputBar(fontRenderer, this, guiLeft + 205, bottom - 78, 200, 15);
@@ -459,6 +463,8 @@ public class GuiRequestTable extends LogisticsBaseGuiScreen implements IItemSear
 		} else if (guibutton.id == 13 && itemDisplay.getSelectedItem() != null) {
 			final ItemIdentifierStack stack = itemDisplay.getSelectedItem().getItem().makeStack(itemDisplay.getRequestCount());
 			MainProxy.sendPacketToServer(PacketHandler.getPacket(RequestComponentPacket.class).setStack(stack).setTilePos(_table.container).setDimension(dimension));
+		} else if (guibutton.id == 23) {
+			MainProxy.sendPacketToServer(PacketHandler.getPacket(CrafterBarrier.GlobalResetPacket.class));
 		} else if (guibutton.id == 9) {
 			String displayString = "";
 			switch (displayOptions) {

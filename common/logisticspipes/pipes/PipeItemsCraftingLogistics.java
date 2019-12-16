@@ -264,11 +264,6 @@ public class PipeItemsCraftingLogistics extends CoreRoutedPipe implements ICraft
 	}
 
 	@Override
-	public void itemArrived(LPTravelingItem.LPTravelingItemServer traveler) {
-		craftingModule.myBarrierRecipe.itemArrived(traveler);
-	}
-
-	@Override
 	public void itemLost(ItemIdentifierStack item, IAdditionalTargetInformation info) {
 		craftingModule.itemLost(item, info);
 	}
@@ -292,5 +287,11 @@ public class PipeItemsCraftingLogistics extends CoreRoutedPipe implements ICraft
 			}
 		}
 		return false;
+	}
+
+	@Override
+	public void clearOrders() {
+		super.clearOrders();
+		craftingModule.clearOrders();
 	}
 }

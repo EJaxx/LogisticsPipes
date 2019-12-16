@@ -48,6 +48,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 
+import net.minecraftforge.fluids.FluidStack;
+
 import io.netty.buffer.ByteBuf;
 
 import logisticspipes.network.IWriteListObject;
@@ -127,6 +129,8 @@ public interface LPDataOutput {
 	void writeNBTTagCompound(@Nullable NBTTagCompound tag);
 
 	void writeItemStack(ItemStack itemstack);
+
+	void writeFluidStack(FluidStack fluidstack);
 
 	void writeItemIdentifier(@Nullable ItemIdentifier item);
 

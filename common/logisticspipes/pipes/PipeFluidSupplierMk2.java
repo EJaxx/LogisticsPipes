@@ -29,7 +29,7 @@ import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifierInventory;
 import logisticspipes.utils.item.ItemIdentifierStack;
 
-public class PipeFluidSupplierMk2 extends FluidRoutedPipe implements IRequestFluid, IRequireReliableFluidTransport {
+public class PipeFluidSupplierMk2 extends PipeFluidBasic implements IRequestFluid, IRequireReliableFluidTransport {
 
 	private boolean _lastRequestFailed = false;
 

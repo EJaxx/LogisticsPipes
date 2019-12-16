@@ -59,6 +59,16 @@ public class PipeFluidProvider extends FluidRoutedPipe implements IProvideFluids
 		AtomicInteger attemptedAmount = new AtomicInteger();
 		amountToSend.set(Math.min(order.getAmount(), 5000));
 		attemptedAmount.set(Math.min(order.getAmount(), 5000));
+
+		Integer v = null;
+		if (order.deliveryLine != null) {
+			v = Math.min(order.deliveryLine.orderBarrier.get(), amountToSend.get());
+			amountToSend.set(Math.min(amountToSend.get(), v));
+			attemptedAmount.set(Math.min(attemptedAmount.get(), v));
+			order.deliveryLine.orderBarrier.getAndAdd(-v);
+			System.err.println("==orderBarrier:" + (-v));
+		}
+
 		for (Triplet<ITankUtil, TileEntity, EnumFacing> pair : getAdjacentTanksAdvanced(false)) {
 			if (amountToSend.get() <= 0) {
 				break;
@@ -74,9 +84,11 @@ public class PipeFluidProvider extends FluidRoutedPipe implements IProvideFluids
 					drained = handler.drainFrom(tile, order.getFluid(), amountToSend.get(), true);
 					int amount = drained.amount;
 					amountToSend.addAndGet(-amount);
+					System.err.println("**drained: " + (amount));
 					ItemIdentifierStack stack = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(FluidIdentifierStack.getFromStack(drained));
 					IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stack);
 					item.setDestination(order.getRouter().getSimpleID());
+					item.setAdditionalTargetInformation(order.getInformation());
 					item.setTransportMode(TransportMode.Active);
 					this.queueRoutedItem(item, pair.getValue3());
 					getFluidOrderManager().sendSuccessfull(amount, false, item);
@@ -87,8 +99,13 @@ public class PipeFluidProvider extends FluidRoutedPipe implements IProvideFluids
 			}
 			if (fallback) {
 				if (util.containsTanks()) {
+					Integer finalV = v;
 					util.forEachFluid(fluidStack -> {
 						if (amountToSend.get() <= 0) {
+							if (finalV != null) {
+								order.deliveryLine.orderBarrier.getAndAdd(amountToSend.get());
+								System.err.println("==orderBarrier: +" + amountToSend.get());
+							}
 							return;
 						}
 						if (fluidStack.getFluid() != null) {
@@ -108,9 +125,11 @@ public class PipeFluidProvider extends FluidRoutedPipe implements IProvideFluids
 									}
 									amount = drained.getAmount();
 									amountToSend.addAndGet(-amount);
+									System.err.println("**drained: " + (amount));
 									ItemIdentifierStack stack = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(drained);
 									IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stack);
 									item.setDestination(order.getRouter().getSimpleID());
+									item.setAdditionalTargetInformation(order.getInformation());
 									item.setTransportMode(TransportMode.Active);
 									queueRoutedItem(item, pair.getValue3());
 									getFluidOrderManager().sendSuccessfull(amount, false, item);
@@ -120,6 +139,10 @@ public class PipeFluidProvider extends FluidRoutedPipe implements IProvideFluids
 					});
 				}
 			}
+		}
+		if (v != null) {
+			order.deliveryLine.orderBarrier.getAndAdd(amountToSend.get());
+			System.err.println("==orderBarrier: +" + amountToSend.get());
 		}
 		if (amountToSend.get() >= attemptedAmount.get()) {
 			getFluidOrderManager().sendFailed();

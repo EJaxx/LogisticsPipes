@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 
 import net.minecraft.entity.item.EntityItem;
@@ -38,9 +37,11 @@ import logisticspipes.interfaces.IItemAdvancedExistance;
 import logisticspipes.interfaces.ISlotUpgradeManager;
 import logisticspipes.interfaces.ISpecialInsertion;
 import logisticspipes.interfaces.ISubSystemPowerProvider;
+import logisticspipes.interfaces.routing.IRequestFluid;
 import logisticspipes.interfaces.routing.ITargetSlotInformation;
 import logisticspipes.logisticspipes.IRoutedItem;
 import logisticspipes.logisticspipes.IRoutedItem.TransportMode;
+import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.modules.abstractmodules.LogisticsModule.ModulePositionType;
 import logisticspipes.network.PacketHandler;
@@ -48,6 +49,7 @@ import logisticspipes.network.packets.pipe.ItemBufferSyncPacket;
 import logisticspipes.network.packets.pipe.PipeContentPacket;
 import logisticspipes.network.packets.pipe.PipeContentRequest;
 import logisticspipes.network.packets.pipe.PipePositionPacket;
+import logisticspipes.pipes.PipeFluidProvider;
 import logisticspipes.pipes.PipeItemsFluidSupplier;
 import logisticspipes.pipes.PipeItemsProviderLogistics;
 import logisticspipes.pipes.PipeLogisticsChassi;
@@ -59,12 +61,14 @@ import logisticspipes.pipes.basic.fluid.FluidRoutedPipe;
 import logisticspipes.pipes.upgrades.UpgradeManager;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.proxy.SimpleServiceLocator;
+import logisticspipes.routing.FluidLogisticsPromise;
 import logisticspipes.routing.ItemRoutingInformation;
 import logisticspipes.routing.order.IOrderInfoProvider;
 import logisticspipes.routing.pathfinder.IPipeInformationProvider;
 import logisticspipes.transport.LPTravelingItem.LPTravelingItemClient;
 import logisticspipes.transport.LPTravelingItem.LPTravelingItemServer;
 import logisticspipes.utils.CacheHolder.CacheTypes;
+import logisticspipes.utils.FluidIdentifierStack;
 import logisticspipes.utils.InventoryHelper;
 import logisticspipes.utils.OrientationsUtil;
 import logisticspipes.utils.SyncList;
@@ -460,6 +464,9 @@ public class PipeTransportLogistics {
 	}
 
 	protected final void handleTileReachedServer_internal(LPTravelingItemServer arrivingItem, TileEntity tile, EnumFacing dir) {
+		//		if (getPipe().isRoutedPipe())
+		//			System.err.println("Reached: " + arrivingItem.getItemIdentifierStack() + ", " + arrivingItem.getAdditionalTargetInformation() + ", " + ((Object) arrivingItem)+", "+getPipe().getPos()+", ID:"+getRoutedPipe().getRouter()+", destID:"+arrivingItem.getDestination());
+		CrafterBarrier.DeliveryLine deliveryLine = null;
 		if (getPipe() instanceof PipeItemsFluidSupplier) {
 			((PipeItemsFluidSupplier) getPipe()).endReached(arrivingItem, tile);
 			if (arrivingItem.getItemIdentifierStack().getStackSize() <= 0) {
@@ -471,11 +478,25 @@ public class PipeTransportLogistics {
 		if (MainProxy.isServer(getWorld()) && arrivingItem.getInfo() != null && arrivingItem.getArrived() && isRouted) {
 			getRoutedPipe().notifyOfItemArival(arrivingItem.getInfo());
 		}
-		if (MainProxy.isServer(getWorld()) && arrivingItem.getInfo() != null && arrivingItem.getArrived() && isRouted) {
-			getRoutedPipe().notifyOfItemArival(arrivingItem);
-		}
 		if (getPipe() instanceof FluidRoutedPipe) {
+			if (arrivingItem.getInfo().nextDestination instanceof IRequestFluid && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
+				new WorldCoordinatesWrapper(tile).allNeighborTileEntities()
+						.filter(NeighborTileEntity::isLogisticsPipe)
+						.map(adjacent -> (CoreRoutedPipe) (((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe))
+						.filter(pipe -> pipe instanceof PipeFluidProvider)
+						.findFirst()
+						.ifPresent(coreRoutedPipe -> {
+							FluidLogisticsPromise prom = new FluidLogisticsPromise();
+							FluidIdentifierStack fl = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(arrivingItem.getItemIdentifierStack());
+							prom.liquid = fl.getFluid();
+							prom.amount = fl.getAmount();
+							((PipeFluidProvider) coreRoutedPipe).getFluidOrderManager()
+									.addOrder(prom, (IRequestFluid) arrivingItem.getInfo().nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.getInfo().nextDestInfo);
+						});
+			}
+
 			if (((FluidRoutedPipe) getPipe()).endReached(arrivingItem, tile)) {
+				arrivingItem.getItemIdentifierStack().lowerStackSize(1);
 				return;
 			}
 		}
@@ -492,16 +513,16 @@ public class PipeTransportLogistics {
 			}
 		} else {
 			IInventoryUtil util = SimpleServiceLocator.inventoryUtilFactory.getInventoryUtil(tile, dir.getOpposite());
-			if (arrivingItem.nextDestination != null) {
+			if (arrivingItem.getInfo().nextDestination != null && arrivingItem.getDestination() == getRoutedPipe().getRouterId()) {
 				if (getPipe() instanceof PipeLogisticsChassi)
-					getRoutedPipe().getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack(), arrivingItem.nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.nextDestInfo);
+					getRoutedPipe().getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack().clone(), arrivingItem.getInfo().nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.getInfo().nextDestInfo);
 				else
 					new WorldCoordinatesWrapper(tile).allNeighborTileEntities()
 							.filter(NeighborTileEntity::isLogisticsPipe)
 							.filter(adjacent -> ((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe instanceof PipeItemsProviderLogistics)
 							.map(adjacent -> (CoreRoutedPipe) (((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe))
 							.findFirst()
-							.ifPresent(coreRoutedPipe -> coreRoutedPipe.getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack(), arrivingItem.nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.nextDestInfo));
+							.ifPresent(coreRoutedPipe -> coreRoutedPipe.getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack().clone(), arrivingItem.getInfo().nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.getInfo().nextDestInfo));
 			}
 			if (util != null && isRouted) {
 				getRoutedPipe().getCacheHolder().trigger(CacheTypes.Inventory);
@@ -511,6 +532,9 @@ public class PipeTransportLogistics {
 					// destroy the item on exit if it isn't exitable
 					if (!isSpecialConnectionInformationTransition && !isItemExitable(arrivingItem.getItemIdentifierStack())) {
 						return;
+					}
+					if (arrivingItem.getAdditionalTargetInformation() instanceof ModuleCrafter.CraftingChassieInformation) {
+						deliveryLine = ((ModuleCrafter.CraftingChassieInformation) arrivingItem.getAdditionalTargetInformation()).deliveryLine;
 					}
 					// last chance for chassi to back out
 					if (arrivingItem != null) {
@@ -548,6 +572,10 @@ public class PipeTransportLogistics {
 									if (util.getSizeInventory() > slot) {
 										int added = ((ISpecialInsertion) util).addToSlot(toAdd, slot);
 										arrivingItem.getItemIdentifierStack().lowerStackSize(added);
+										if (deliveryLine != null && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
+											System.err.println("+insertedCount " + added + " into " + deliveryLine);
+											deliveryLine.insertedCount.addAndGet(added);
+										}
 										if (added > 0) {
 										}
 									}
@@ -562,13 +590,18 @@ public class PipeTransportLogistics {
 						}
 					}
 					if (getRoutedPipe().getUpgradeManager() != null && getRoutedPipe().getUpgradeManager() instanceof UpgradeManager
-							&& getRoutedPipe().getUpgradeManager().hasPatternUpgrade() && !(tile instanceof LogisticsCraftingTableTileEntity)) {
+							&& getRoutedPipe().getUpgradeManager().hasPatternUpgrade() && !(tile instanceof LogisticsCraftingTableTileEntity) &&
+							deliveryLine != null && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
 						if (arrivingItem.getAdditionalTargetInformation() instanceof ModuleCrafter.CraftingChassieInformation && util instanceof ISpecialInsertion) {
 							ModuleCrafter.CraftingChassieInformation information = (ModuleCrafter.CraftingChassieInformation) arrivingItem.getAdditionalTargetInformation();
 							int slot = information.getCraftingSlot();
 							ItemStack toAdd = arrivingItem.getItemIdentifierStack().makeNormalStack();
-							int added = ((ISpecialInsertion) util).addToSlot(toAdd, slot);
+							int added = ((ISpecialInsertion) util).addToSlot(toAdd, deliveryLine == null ? slot : deliveryLine.assignedSlot);
 							arrivingItem.getItemIdentifierStack().lowerStackSize(added);
+							if (deliveryLine != null && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
+								System.err.println("+insertedCount " + added + " into " + deliveryLine);
+								deliveryLine.insertedCount.addAndGet(added);
+							}
 						}
 					} else if (!getRoutedPipe().getUpgradeManager().hasCombinedSneakyUpgrade() || slotManager.hasOwnSneakyUpgrade()) { // sneaky insertion
 						EnumFacing insertion = arrivingItem.output.getOpposite();
@@ -578,6 +611,10 @@ public class PipeTransportLogistics {
 						ItemStack added = InventoryHelper.getTransactorFor(tile, insertion).add(arrivingItem.getItemIdentifierStack().makeNormalStack(), insertion, true);
 
 						arrivingItem.getItemIdentifierStack().lowerStackSize(added.getCount());
+						if (deliveryLine != null && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
+							System.err.println(arrivingItem.getItemIdentifierStack() + " +insertedCount " + added.getCount() + " into " + String.format("%8x", deliveryLine.hashCode()) + " slot:" + deliveryLine.assignedSlot + ", " + deliveryLine.group.owner.getCraftedItem());
+							deliveryLine.insertedCount.addAndGet(added.getCount());
+						}
 
 						if (added.getCount() > 0 && arrivingItem instanceof IRoutedItem) {
 							arrivingItem.setBufferCounter(0);
@@ -585,7 +622,8 @@ public class PipeTransportLogistics {
 
 						ItemRoutingInformation info;
 
-						if (arrivingItem.getItemIdentifierStack().getStackSize() > 0) {
+						// if (arrivingItem.getItemIdentifierStack().getStackSize() > 0) {
+						if (true) {
 							// we have some leftovers, we are splitting the stack, we need to clone the info
 							info = arrivingItem.getInfo().clone();
 							// For InvSysCon
@@ -607,14 +645,18 @@ public class PipeTransportLogistics {
 								continue;
 							}
 							ItemStack added = InventoryHelper.getTransactorFor(tile, insertion).add(arrivingItem.getItemIdentifierStack().makeNormalStack(), insertion, true);
-
 							arrivingItem.getItemIdentifierStack().lowerStackSize(added.getCount());
+							if (deliveryLine != null && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
+								System.err.println("+insertedCount " + added.getCount() + " into " + deliveryLine);
+								deliveryLine.insertedCount.addAndGet(added.getCount());
+							}
 							if (added.getCount() > 0) {
 								arrivingItem.setBufferCounter(0);
 							}
 							ItemRoutingInformation info;
 
-							if (arrivingItem.getItemIdentifierStack().getStackSize() > 0) {
+							// if (arrivingItem.getItemIdentifierStack().getStackSize() > 0) {
+							if (true) {
 								// we have some leftovers, we are splitting the stack, we need to clone the info
 								info = arrivingItem.getInfo().clone();
 								// For InvSysCon

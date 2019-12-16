@@ -30,11 +30,12 @@ public abstract class GuiExtention {
 	public abstract void renderForground(int left, int top);
 
 	public final void update(int xPos, int yPos) {
+		int n = 3;
 		currentXPos = xPos;
 		if (yPos > currentYPos + 1 && !init) {
-			currentYPos += 2;
+			currentYPos += 2*n;
 		} else if (yPos < currentYPos - 1 && !init) {
-			currentYPos -= 2;
+			currentYPos -= 2*n;
 		} else {
 			currentYPos = yPos;
 		}
@@ -42,23 +43,23 @@ public abstract class GuiExtention {
 		init = false;
 		if (extending) {
 			if (currentH < getFinalHeight()) {
-				currentH += 4;
+				currentH += 4*n;
 			} else {
 				currentH = getFinalHeight();
 			}
 			if (currentW < getFinalWidth()) {
-				currentW += 2;
+				currentW += 2*n;
 			} else {
 				currentW = getFinalWidth();
 			}
 		} else {
 			if (currentH > getMinimumHeight()) {
-				currentH -= 4;
+				currentH -= 4*n;
 			} else {
 				currentH = getMinimumHeight();
 			}
 			if (currentW > getMinimumWidth()) {
-				currentW -= 2;
+				currentW -= 2*n;
 			} else {
 				currentW = getMinimumWidth();
 			}
