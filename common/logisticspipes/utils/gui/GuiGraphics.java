@@ -29,6 +29,7 @@ import net.minecraftforge.fml.client.FMLClientHandler;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
+import com.google.common.collect.Lists;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
@@ -62,7 +63,7 @@ public final class GuiGraphics {
 	 * @param x         the x-coordinate for the bar
 	 * @param y         the y-coordinate for the bar
 	 * @param zLevel    the z-level for the bar
-	 * @see net.minecraft.client.renderer.entity.RenderItem#renderItemOverlayIntoGUI(FontRenderer,
+	 * @see # net.minecraft.client.renderer.entity.RenderItem#renderItemOverlayIntoGUI(FontRenderer,
 	 * TextureManager, ItemStack, int, int, String)
 	 */
 	public static void drawDurabilityBar(ItemStack itemstack, int x, int y, double zLevel) {
@@ -97,10 +98,14 @@ public final class GuiGraphics {
 		ItemStack stack = (ItemStack) tooltip[2];
 
 		List<String> tooltipLines;
-		if (mc.currentScreen instanceof GuiContainer) {
-			tooltipLines = SimpleServiceLocator.neiProxy.getItemToolTip(stack, mc.player, mc.gameSettings.advancedItemTooltips ? ITooltipFlag.TooltipFlags.ADVANCED : ITooltipFlag.TooltipFlags.NORMAL, (GuiContainer) mc.currentScreen);
-		} else {
-			tooltipLines = stack.getTooltip(mc.player, mc.gameSettings.advancedItemTooltips ? ITooltipFlag.TooltipFlags.ADVANCED : ITooltipFlag.TooltipFlags.NORMAL);
+		try {
+			if (mc.currentScreen instanceof GuiContainer) {
+				tooltipLines = SimpleServiceLocator.neiProxy.getItemToolTip(stack, mc.player, mc.gameSettings.advancedItemTooltips ? ITooltipFlag.TooltipFlags.ADVANCED : ITooltipFlag.TooltipFlags.NORMAL, (GuiContainer) mc.currentScreen);
+			} else {
+				tooltipLines = stack.getTooltip(mc.player, mc.gameSettings.advancedItemTooltips ? ITooltipFlag.TooltipFlags.ADVANCED : ITooltipFlag.TooltipFlags.NORMAL);
+			}
+		} catch (Exception e) {
+			tooltipLines = Lists.newArrayList("Exception: " + e.getClass().toString());
 		}
 
 		if (tooltip.length > 4) {

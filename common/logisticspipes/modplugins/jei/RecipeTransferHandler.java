@@ -19,18 +19,23 @@ import net.minecraft.util.NonNullList;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.oredict.OreDictionary;
 
+import static logisticspipes.modules.CrafterBarrier.stackToString;
 import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IGuiItemStackGroup;
 import mezz.jei.api.gui.IRecipeLayout;
+import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.VanillaRecipeCategoryUid;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
+import org.luaj.vm2.ast.Str;
 
+import logisticspipes.LogisticsPipes;
 import logisticspipes.gui.GuiCraftingPipe;
 import logisticspipes.gui.GuiLogisticsCraftingTable;
 import logisticspipes.gui.orderer.GuiRequestTable;
 import logisticspipes.gui.popup.GuiRecipeImport;
+import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.PacketHandler;
 import logisticspipes.network.packets.NEISetCraftingRecipe;
@@ -51,12 +56,6 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 	@Override
 	public Class getContainerClass() {
 		return DummyContainer.class;
-	}
-
-	static <X, Y, Z> Map<X, Z> transform(Map<? extends X, ? extends Y> input, Function<Y, Z> function) {
-		return input.keySet().stream()
-				.collect(Collectors.toMap(Function.identity(),
-						key -> function.apply(input.get(key))));
 	}
 
 	@Nullable
@@ -84,22 +83,31 @@ public class RecipeTransferHandler implements IRecipeTransferHandler {
 					}
 				});
 
-				Map<Integer, Pair<Boolean, ItemStack>> items = transform(recipeLayout.getItemStacks().getGuiIngredients(), v -> new Pair<>(v.isInput(), v.getDisplayedIngredient()));
-				Map<Integer, Pair<Boolean, FluidStack>> fluids = transform(recipeLayout.getFluidStacks().getGuiIngredients(), v -> new Pair<>(v.isInput(), v.getDisplayedIngredient()));
+				String categoryUid = recipeLayout.getRecipeCategory().getUid();
+				recipeLayout.getFocus();
+
+				Map<Integer, Pair<Boolean, ItemStack>> items = CrafterBarrier.transform(recipeLayout.getItemStacks().getGuiIngredients(), v -> new Pair<>(v.isInput(), v.getDisplayedIngredient()));
+				Map<Integer, Pair<Boolean, FluidStack>> fluids = CrafterBarrier.transform(recipeLayout.getFluidStacks().getGuiIngredients(), v -> new Pair<>(v.isInput(), v.getDisplayedIngredient()));
+				System.err.println(String.format("transferRecipe(%s,...)", categoryUid));
+				items.forEach((k, v) -> System.err.print(String.format("%d%s%s\n", k, v.getValue1() ? "<-" : "->", stackToString(v.getValue2()))));
+				fluids.forEach((k, v) -> System.err.print(String.format("%d%s%s\n", k, v.getValue1() ? "<-" : "->", stackToString(v.getValue2()))));
 
 				TileEntity tile = null;
 				if (cpGui.get_pipe().getSlot() == LogisticsModule.ModulePositionType.SLOT)
 					tile = cpGui.get_pipe().getRouter().getPipe().getWorld().getTileEntity(cpGui.get_pipe().getRouter().getPipe().getPos());
 
+				boolean craftingGrid = categoryUid.equals(VanillaRecipeCategoryUid.CRAFTING) || categoryUid.startsWith("extendedcrafting:");
+				Object recipeResult = recipeLayout.getFocus().getMode() == IFocus.Mode.OUTPUT
+						? recipeLayout.getFocus().getValue() : null;
 				if (variantCnt.get() > 0)
 					gui.setSubGui(new GuiRecipeImport(tile, stacks, selected -> {
 						for (int i = 0; i < variantCnt.get(); i++)
 							items.get(stacksMap[i]).setValue2(selected[i]);
-						cpGui.transferRecipe(items, fluids);
+						cpGui.transferRecipe(items, fluids, craftingGrid, recipeResult);
 						return null;
 					}));
 				else
-					cpGui.transferRecipe(items, fluids);
+					cpGui.transferRecipe(items, fluids, craftingGrid, recipeResult);
 				return null;
 			}
 

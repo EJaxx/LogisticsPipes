@@ -1,11 +1,13 @@
 package logisticspipes.request;
 
 import java.util.List;
+import java.util.Set;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.ICraft;
 import logisticspipes.interfaces.routing.ICraftItems;
 import logisticspipes.request.resources.IResource;
+import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
 
@@ -32,4 +34,6 @@ public interface ICraftingTemplate extends Comparable<ICraftingTemplate> {
 	int compareStack(ItemIdentifierStack stack);
 
 	int compareCrafter(ICraftItems crafter);
+
+	Set<FluidIdentifier> getCheckList();
 }

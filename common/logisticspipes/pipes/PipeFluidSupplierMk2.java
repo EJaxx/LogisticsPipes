@@ -4,14 +4,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
 
 import net.minecraftforge.fluids.FluidTank;
 
 import lombok.Getter;
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.ProbeMode;
 
 import logisticspipes.LogisticsPipes;
 import logisticspipes.interfaces.routing.IRequestFluid;
@@ -28,6 +33,7 @@ import logisticspipes.transport.PipeFluidTransportLogistics;
 import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.item.ItemIdentifierInventory;
 import logisticspipes.utils.item.ItemIdentifierStack;
+import logisticspipes.utils.tuples.Pair;
 
 public class PipeFluidSupplierMk2 extends PipeFluidBasic implements IRequestFluid, IRequireReliableFluidTransport {
 
@@ -50,6 +56,17 @@ public class PipeFluidSupplierMk2 extends PipeFluidBasic implements IRequestFlui
 	public PipeFluidSupplierMk2(Item item) {
 		super(item);
 		throttleTime = 100;
+	}
+
+	@Override
+	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
+		for (Pair<ItemIdentifierStack, Integer> slot : getMyInventory()) {
+			if (slot.getValue1() != null)
+				probeInfo.horizontal()
+						.text("Target for: ")
+						.text(slot.getValue1().getItem().getFriendlyName())
+						.text("  x" + vol(amount));
+		}
 	}
 
 	@Override
@@ -279,6 +296,11 @@ public class PipeFluidSupplierMk2 extends PipeFluidBasic implements IRequestFlui
 		entityplayer.openGui(LogisticsPipes.instance, GuiIDs.GUI_FluidSupplier_MK2_ID, getWorld(), getX(), getY(), getZ());
 	}
 
+	@Override
+	public ItemIdentifierInventory getMyInventory() {
+		return dummyInventory;
+	}
+
 	public IInventory getDummyInventory() {
 		return dummyInventory;
 	}
@@ -304,5 +326,12 @@ public class PipeFluidSupplierMk2 extends PipeFluidBasic implements IRequestFlui
 	@Override
 	public boolean canReceiveFluid() {
 		return false;
+	}
+
+	@Override
+	public void clearOrders() {
+		super.clearOrders();
+		_lastRequestFailed = false;
+		_requestedItems.clear();
 	}
 }

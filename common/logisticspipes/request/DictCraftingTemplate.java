@@ -8,8 +8,12 @@
 package logisticspipes.request;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+
+import lombok.Getter;
 
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.ICraftItems;
@@ -19,6 +23,8 @@ import logisticspipes.routing.LogisticsDictPromise;
 import logisticspipes.routing.LogisticsExtraPromise;
 import logisticspipes.routing.LogisticsPromise;
 import logisticspipes.routing.order.IOrderInfoProvider.ResourceType;
+import logisticspipes.utils.FluidIdentifier;
+import logisticspipes.utils.FluidIdentifierStack;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
 
@@ -30,6 +36,7 @@ public class DictCraftingTemplate implements IReqCraftingTemplate {
 	protected ArrayList<Pair<IResource, IAdditionalTargetInformation>> _required = new ArrayList<>(9);
 
 	protected ArrayList<ItemIdentifierStack> _byproduct = new ArrayList<>(9);
+	@Getter	Set<FluidIdentifier> checkList = new HashSet<>();
 
 	private final int priority;
 

@@ -1,12 +1,18 @@
 package logisticspipes.pipes;
 
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.world.World;
 
 import net.minecraftforge.fluids.FluidTank;
+
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.ProbeMode;
 
 import logisticspipes.LogisticsPipes;
 import logisticspipes.interfaces.ITankUtil;
@@ -20,15 +26,33 @@ import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.FluidIdentifierStack;
 import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.item.ItemIdentifierInventory;
+import logisticspipes.utils.item.ItemIdentifierStack;
+import logisticspipes.utils.tuples.Pair;
 import logisticspipes.utils.tuples.Triplet;
 
 public class PipeFluidBasic extends FluidRoutedPipe implements IFluidSink {
 
 	public ItemIdentifierInventory filterInv = new ItemIdentifierInventory(1, "Dummy", 1, true);
+
+	public ItemIdentifierInventory getMyInventory() {
+		return filterInv;
+	}
+
 	private PlayerCollectionList guiOpenedBy = new PlayerCollectionList();
 
 	public PipeFluidBasic(Item item) {
 		super(item);
+	}
+
+	@Override
+	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
+		super.addProbeInfo(mode, probeInfo, player, world, blockState, data);
+		for (Pair<ItemIdentifierStack, Integer> slot : getMyInventory()) {
+			if (slot.getValue1() != null)
+				probeInfo.horizontal()
+						.text("Target for: ")
+						.text(slot.getValue1().getItem().getFriendlyName());
+		}
 	}
 
 	@Override
@@ -52,10 +76,10 @@ public class PipeFluidBasic extends FluidRoutedPipe implements IFluidSink {
 			return 0; //Don't sink when the gui is open
 		}
 		FluidIdentifier ident = stack.getFluid();
-		if (filterInv.getIDStackInSlot(0) == null) {
+		if (getMyInventory().getIDStackInSlot(0) == null) {
 			return 0;
 		}
-		if (!ident.equals(FluidIdentifier.get(filterInv.getIDStackInSlot(0).getItem()))) {
+		if (!ident.equals(FluidIdentifier.get(getMyInventory().getIDStackInSlot(0).getItem()))) {
 			return 0;
 		}
 		int onTheWay = this.countOnRoute(ident);
@@ -74,13 +98,13 @@ public class PipeFluidBasic extends FluidRoutedPipe implements IFluidSink {
 	@Override
 	public void writeToNBT(NBTTagCompound nbttagcompound) {
 		super.writeToNBT(nbttagcompound);
-		filterInv.writeToNBT(nbttagcompound);
+		getMyInventory().writeToNBT(nbttagcompound);
 	}
 
 	@Override
 	public void readFromNBT(NBTTagCompound nbttagcompound) {
 		super.readFromNBT(nbttagcompound);
-		filterInv.readFromNBT(nbttagcompound);
+		getMyInventory().readFromNBT(nbttagcompound);
 	}
 
 	@Override

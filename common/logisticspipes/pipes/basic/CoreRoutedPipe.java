@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,10 @@ import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.world.World;
 
 import lombok.Getter;
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.ProbeMode;
+import mcjty.theoneprobe.apiimpl.styles.ItemStyle;
 
 import logisticspipes.LPConstants;
 import logisticspipes.LPItems;
@@ -62,7 +67,6 @@ import logisticspipes.interfaces.ISlotUpgradeManager;
 import logisticspipes.interfaces.ISubSystemPowerProvider;
 import logisticspipes.interfaces.IWatchingHandler;
 import logisticspipes.interfaces.IWorldProvider;
-import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IFilter;
 import logisticspipes.interfaces.routing.IRequestItems;
@@ -108,6 +112,7 @@ import logisticspipes.routing.IRouter;
 import logisticspipes.routing.ItemRoutingInformation;
 import logisticspipes.routing.ServerRouter;
 import logisticspipes.routing.order.IOrderInfoProvider;
+import logisticspipes.routing.order.LogisticsItemOrder;
 import logisticspipes.routing.order.LogisticsItemOrderManager;
 import logisticspipes.routing.order.LogisticsOrderManager;
 import logisticspipes.routing.pathfinder.IPipeInformationProvider.ConnectionPipeType;
@@ -123,6 +128,7 @@ import logisticspipes.utils.FluidIdentifierStack;
 import logisticspipes.utils.OrientationsUtil;
 import logisticspipes.utils.PlayerCollectionList;
 import logisticspipes.utils.SinkReply;
+import logisticspipes.utils.TOPCompatibility;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
@@ -135,7 +141,7 @@ import network.rs485.logisticspipes.world.WorldCoordinatesWrapper;
 
 @CCType(name = "LogisticsPipes:Normal")
 public abstract class CoreRoutedPipe extends CoreUnroutedPipe
-		implements IClientState, IRequestItems, ITrackStatistics, IWorldProvider, IWatchingHandler, IPipeServiceProvider, IQueueCCEvent, ILPPositionProvider {
+		implements IClientState, IRequestItems, ITrackStatistics, IWorldProvider, IWatchingHandler, IPipeServiceProvider, IQueueCCEvent, ILPPositionProvider, TOPCompatibility.TOPInfoProvider {
 
 	private static int pipecount = 0;
 	public final PlayerCollectionList watchers = new PlayerCollectionList();
@@ -195,6 +201,22 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 
 		//Roughly spread pipe updates throughout the frequency, no need to maintain balance
 		_delayOffset = CoreRoutedPipe.pipecount % Configs.LOGISTICS_DETECTION_FREQUENCY;
+	}
+
+	@Override
+	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
+		if (_orderItemManager != null) {
+			HashMap<ItemIdentifier, Integer> ls = new HashMap<>();
+			for (LogisticsItemOrder o : _orderItemManager)
+				ls.put(o.getResource().getItem(), ls.getOrDefault(o.getResource().getItem(), 0) + o.getAmount());
+			if (!ls.isEmpty())
+				probeInfo.text("Orders>>");
+			ls.keySet().stream().sorted().forEach(key ->
+					probeInfo.horizontal().item(
+							key.makeNormalStack(1),
+							new ItemStyle().width(16).height(8))
+							.text("x" + String.format("%-5d", ls.get(key))).text(key.getFriendlyName()));
+		}
 	}
 
 	public RouteLayer getRouteLayer() {

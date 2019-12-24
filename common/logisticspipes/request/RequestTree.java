@@ -1,11 +1,14 @@
 package logisticspipes.request;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
@@ -14,6 +17,7 @@ import logisticspipes.interfaces.routing.IAdditionalTargetInformation;
 import logisticspipes.interfaces.routing.IProvide;
 import logisticspipes.interfaces.routing.IRequestFluid;
 import logisticspipes.interfaces.routing.IRequestItems;
+import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.request.resources.FluidResource;
 import logisticspipes.request.resources.IResource;
 import logisticspipes.request.resources.ItemResource;
@@ -21,9 +25,11 @@ import logisticspipes.routing.ExitRoute;
 import logisticspipes.routing.order.LinkedLogisticsOrderList;
 import logisticspipes.utils.FinalPair;
 import logisticspipes.utils.FluidIdentifier;
+import logisticspipes.utils.FluidIdentifierStack;
 import logisticspipes.utils.IHavePriority;
 import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
+import logisticspipes.utils.tuples.Pair;
 
 public class RequestTree extends RequestTreeNode {
 
@@ -173,6 +179,21 @@ public class RequestTree extends RequestTreeNode {
 	public static int request(ItemIdentifierStack item, IRequestItems requester, RequestLog log, boolean acceptPartial, boolean simulateOnly, boolean logMissing, boolean logUsed, EnumSet<ActiveRequestType> requestFlags, IAdditionalTargetInformation info) {
 		ItemResource req = new ItemResource(item, requester);
 		RequestTree tree = new RequestTree(req, null, requestFlags, info);
+		HashSet<FluidIdentifier> checkSpace = tree.collectCheckSpace();
+		List<IResource> checkSpaceResult = checkSpace.stream()
+				.map(fluid -> {
+					Pair<Integer, Integer> result = SimpleServiceLocator.logisticsFluidManager.getBestReply(fluid.makeFluidIdentifierStack(1), requester.getRouter(), new ArrayList<>());
+					return new Pair<>(fluid, result.getValue2());
+				})
+				.filter(o -> o.getValue2() <= 0)
+				.map(Pair::getValue1).map(o -> new FluidResource(o, 999999999, null))
+				.collect(Collectors.toList());
+		if (!checkSpaceResult.isEmpty()) {
+			log.handleMissingItems(checkSpaceResult);
+			//tree.setMissingSpace(fluidStack);
+			//player.sendMessage(new TextComponentString("Not found intermediate space for fluid: " + fluidStack.makeFluidStack().getUnlocalizedName()));
+			return tree.getPromiseAmount();
+		}
 		if (!simulateOnly && (tree.isDone() || ((tree.getPromiseAmount() > 0) && acceptPartial))) {
 			LinkedLogisticsOrderList list = tree.fullFillAll();
 			if (log != null) {

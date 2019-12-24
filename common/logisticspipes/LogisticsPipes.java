@@ -94,6 +94,7 @@ import logisticspipes.items.LogisticsSolidBlockItem;
 import logisticspipes.items.RemoteOrderer;
 import logisticspipes.logistics.LogisticsFluidManager;
 import logisticspipes.logistics.LogisticsManager;
+import logisticspipes.modules.modplugins.enderio.TeleportEntityEventHandler;
 import logisticspipes.network.GuiHandler;
 import logisticspipes.network.NewGuiHandler;
 import logisticspipes.network.PacketHandler;
@@ -332,6 +333,7 @@ public class LogisticsPipes {
 
 		MainProxy.proxy.initModelLoader();
 		logisticspipes.utils.TOPCompatibility.register();
+		TeleportEntityEventHandler.reg();
 	}
 
 	@Mod.EventHandler

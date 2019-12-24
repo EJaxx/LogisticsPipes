@@ -130,8 +130,7 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 	@Override
 	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
 		_module.addProbeInfo(mode, probeInfo, player, world, blockState, data);
-//		if (crafterBarrier.current != null)
-//			crafterBarrier.current.addProbeInfo(mode, probeInfo, player, world, blockState, data);
+		super.addProbeInfo(mode, probeInfo, player, world, blockState, data);
 	}
 
 	@Override

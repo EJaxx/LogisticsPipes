@@ -145,6 +145,7 @@ public class ItemModule extends LogisticsItem {
 	@Override
 	@Nonnull
 	public ActionResult<ItemStack> onItemRightClick(final World world, final EntityPlayer player, @Nonnull final EnumHand hand) {
+		// ToDo !!! Shift+Click
 		if (MainProxy.isServer(player.world)) {
 			openConfigGui(player.getHeldItem(hand), player, world);
 		}

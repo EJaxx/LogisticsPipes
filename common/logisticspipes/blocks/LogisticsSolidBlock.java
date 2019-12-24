@@ -108,6 +108,9 @@ public class LogisticsSolidBlock extends Block {
 	}
 
 	@Override
+	public boolean getWeakChanges(IBlockAccess world, BlockPos pos) { return true;}
+
+	@Override
 	public void onNeighborChange(IBlockAccess world, BlockPos pos, BlockPos neigbour) {
 		super.onNeighborChange(world, pos, neigbour);
 		TileEntity tile = world.getTileEntity(pos);

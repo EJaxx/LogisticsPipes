@@ -45,6 +45,8 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import org.lwjgl.input.Mouse;
+import org.lwjgl.util.Point;
 
 import logisticspipes.config.Configs;
 import logisticspipes.interfaces.IItemAdvancedExistance;
@@ -224,10 +226,23 @@ public class LogisticsEventListener {
 	@Getter(lazy = true)
 	private static final Queue<GuiEntry> guiPos = new LinkedList<>();
 
+	Point savedMouse = null;
+
 	//Handle GuiRepoen
 	@SubscribeEvent
 	@SideOnly(Side.CLIENT)
 	public void onGuiOpen(GuiOpenEvent event) {
+		if (event.getGui() == null) {
+			savedMouse = new Point(Mouse.getX(), Mouse.getY());
+			//System.err.println("GuiOpenEvent: saved" + event.getGui() + ", " + savedMouse);
+		} else
+			new Thread(() -> {
+				try {Thread.sleep(50);} catch (InterruptedException e) {e.printStackTrace();}
+				Point local1;
+				//System.err.println("restored" + event.getGui() + ", " + savedMouse);
+				if ((local1 = savedMouse) != null) Mouse.setCursorPosition(local1.getX(), local1.getY());
+				savedMouse = null;
+			}).start();
 		if (!LogisticsEventListener.getGuiPos().isEmpty()) {
 			if (event.getGui() == null) {
 				GuiEntry part = LogisticsEventListener.getGuiPos().peek();

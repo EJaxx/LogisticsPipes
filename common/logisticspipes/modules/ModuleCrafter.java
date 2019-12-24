@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -38,6 +39,9 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 
+import static logisticspipes.modules.CrafterBarrier.availableConfigurator;
+import static logisticspipes.modules.CrafterBarrier.stackToString;
+import static logisticspipes.modules.CrafterBarrier.stripTags;
 import lombok.Getter;
 import mcjty.theoneprobe.api.IProbeHitData;
 import mcjty.theoneprobe.api.IProbeInfo;
@@ -100,6 +104,7 @@ import logisticspipes.request.ICraftingTemplate;
 import logisticspipes.request.IPromise;
 import logisticspipes.request.IReqCraftingTemplate;
 import logisticspipes.request.ItemCraftingTemplate;
+import logisticspipes.request.RequestLog;
 import logisticspipes.request.RequestTree;
 import logisticspipes.request.RequestTreeNode;
 import logisticspipes.request.resources.DictResource;
@@ -112,6 +117,7 @@ import logisticspipes.routing.LogisticsExtraDictPromise;
 import logisticspipes.routing.LogisticsExtraPromise;
 import logisticspipes.routing.LogisticsPromise;
 import logisticspipes.routing.order.IOrderInfoProvider.ResourceType;
+import logisticspipes.routing.order.LinkedLogisticsOrderList;
 import logisticspipes.routing.order.LogisticsItemOrder;
 import logisticspipes.routing.pathfinder.IPipeInformationProvider.ConnectionPipeType;
 import logisticspipes.utils.CacheHolder.CacheTypes;
@@ -151,6 +157,9 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	public boolean[] craftingSigns = new boolean[6];
 	public boolean waitingForCraft = false;
 	public boolean cleanupModeIsExclude = true;
+	public AtomicInteger extractorBarrier = new AtomicInteger(0);
+	public HashMap<ItemIdentifierStack, Integer> extractorOrders = new HashMap<>();
+	public CrafterBarrier.CraftingTask lock;
 	// from PipeItemsCraftingLogistics
 	protected ItemIdentifierInventory _dummyInventory = new ItemIdentifierInventory(11, "Requested items", 127);
 	protected ItemIdentifierInventory _liquidInventory = new ItemIdentifierInventory(ItemUpgrade.MAX_LIQUID_CRAFTER, "Fluid items", 1, true);
@@ -165,8 +174,10 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	public ClientSideSatelliteNames clientSideSatelliteNames = new ClientSideSatelliteNames();
 	private UpgradeSatelliteFromIDs updateSatelliteFromIDs = null;
 	public final CrafterBarrier.Recipe myBarrierRecipe = new CrafterBarrier.Recipe(_dummyInventory);
-	private Map<Integer, Pair<Boolean, ItemStack>> itemsJEI;
-	private Map<Integer, Pair<Boolean, FluidStack>> fluidsJEI;
+	public Map<Integer, Pair<Boolean, ItemStack>> itemsJEI;
+	public Map<Integer, Pair<Boolean, FluidStack>> fluidsJEI;
+	public EnumFacing cachedFluidDir;
+	private Integer cachedFluidDest;
 
 	public ModuleCrafter() {
 		for (int i = 0; i < fuzzyCraftingFlagArray.length; i++) {
@@ -187,7 +198,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
 		ItemIdentifierStack res = _dummyInventory.getIDStackInSlot(9);
-		if (res != null) probeInfo.horizontal().item(
+		if (res != null) probeInfo.horizontal().text(lock == null ? "" : "*").item(
 				res.getItem().makeNormalStack(1),
 				new ItemStyle().width(16).height(8))
 				.text(res.getItem().getFriendlyName());
@@ -273,8 +284,8 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				count -= _service.countOnRoute(item);
 			else
 				count -= _service.getRouter().getPipe().inTransitToMe()
-						.filter(it -> ((CraftingChassieInformation) it.targetInfo).getModuleSlot() == positionInt)
-						.filter(it -> ((CraftingChassieInformation) it.targetInfo).getCraftingSlot() == toSlot)
+						.filter(it -> it.targetInfo instanceof CraftingChassieInformation && ((CraftingChassieInformation) it.targetInfo).getModuleSlot() == positionInt)
+						.filter(it -> it.targetInfo instanceof CraftingChassieInformation && ((CraftingChassieInformation) it.targetInfo).getCraftingSlot() == toSlot)
 						.mapToInt(it -> it.getItem().getStackSize()).sum();
 		}
 		return count;
@@ -554,7 +565,9 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	public ICraftingTemplate addCrafting(IResource toCraft) {
 
 		EnumFacing dir = getRouter().getPipe().getPointedOrientation();
-		CrafterBarrier.CraftingTask craftingTask = new CrafterBarrier.CraftingTask(this, null, dir);
+		if (dir == null) return null;
+		CrafterBarrier.CraftingTask craftingTask = new CrafterBarrier.CraftingTask(this);
+		CoreRoutedPipe queueManager = null;
 
 		List<ItemIdentifierStack> stack = getCraftedItems();
 		if (stack == null) {
@@ -600,6 +613,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				for (int i = 0; i < 9; i++)
 					if (redirectToSatellite[i]) {
 						target[i] = sat;
+						if (queueManager == null) queueManager = r.getPipe();
 					}
 			}
 		} else {
@@ -607,10 +621,12 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				IRouter r = getSatelliteRouter(i);
 				if (r != null) {
 					target[i] = r.getPipe();
+					if (queueManager == null) queueManager = r.getPipe();
 				}
 			}
 		}
 
+		if (queueManager == null) queueManager = getRouter().getPipe();
 		//Check all materials
 		for (int i = 0; i < 9; i++) {
 			ItemIdentifierStack resourceStack = getMaterials(i);
@@ -638,22 +654,39 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			CrafterBarrier.InventoryLink invLink;
 			if (targetPipe != null && targetPipe.getPointedOrientation() != null) {
 				dir = getUpgradeManager().getSneakyOrientation() == null ? targetPipe.getPointedOrientation().getOpposite() : getUpgradeManager().getSneakyOrientation();
-				invLink = CrafterBarrier.InventoryLink.getOrCreate(targetPipe.getWorld(),
-						targetPipe.getRouterId(), targetPipe.getPos().offset(targetPipe.getPointedOrientation()), dir);
+				invLink = CrafterBarrier.InventoryLink.getOrCreate(targetPipe, dir);
 				deliveryLine = new CrafterBarrier.DeliveryLine(craftingTask, this, null, i, req.getRequestedAmount(), invLink);
 			} else
 				return null; // cancel
 			if (isConfigurator(resourceStack.getItem())) {
 				craftingTask.configurator = new Pair<>(req, new CraftingChassieInformation(i, getPositionInt(), deliveryLine));
+
+				if (!availableConfigurator.contains(resourceStack.getItem()))
+					RequestTree.request(resourceStack.getItem().makeStack(1), getRouter().getPipe(), new RequestLog() {
+
+						@Override
+						public void handleMissingItems(List<IResource> resources) {
+							System.err.println("Missing items:");
+							resources.forEach(o -> System.err.println(o.getAsItem()));
+						}
+
+						@Override
+						public void handleSucessfullRequestOf(IResource item, LinkedLogisticsOrderList parts) {
+							// System.err.println("Request done");
+						}
+
+						@Override
+						public void handleSucessfullRequestOfList(List<IResource> resources, LinkedLogisticsOrderList parts) {
+							resources.forEach(o -> availableConfigurator.add(o.getAsItem()));
+						}
+					}, true, true, true, true, RequestTree.defaultRequestFlags, null);
+
+				// availableTools.add(resourceStack.getItem());
 			} else if (isTool(resourceStack.getItem()) || notConsumed) {
 				craftingTask.tools.add(new Pair<>(req, new CraftingChassieInformation(i, getPositionInt(), deliveryLine)));
 			} else {
 				template.addRequirement(req, new CraftingChassieInformation(i, getPositionInt(), deliveryLine));
 				craftingTask.lines.add(deliveryLine);
-				CrafterBarrier cb = CrafterBarrier.GetOrCreateBarrier(invLink.posW, invLink.posB);
-				cb.registry.put(craftingTask, true);
-				if (craftingTask.queueManager == null)
-					craftingTask.queueManager = cb;
 			}
 		}
 
@@ -666,6 +699,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				IRequestFluid sat = (IRequestFluid) r.getPipe();
 				for (int i = 0; i < liquidCrafter; i++) {
 					liquidTarget[i] = sat;
+					if (queueManager == null) queueManager = r.getPipe();
 				}
 			}
 		} else {
@@ -673,6 +707,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				IRouter r = getFluidSatelliteRouter(i);
 				if (r != null) {
 					liquidTarget[i] = (IRequestFluid) r.getPipe();
+					if (queueManager == null) queueManager = r.getPipe();
 				}
 			}
 		}
@@ -687,22 +722,89 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			if (targetPipe == null || targetPipe.getPointedOrientation() == null)
 				return null;
 			dir = getUpgradeManager().getSneakyOrientation() == null ? targetPipe.getPointedOrientation().getOpposite() : getUpgradeManager().getSneakyOrientation();
-			CrafterBarrier.InventoryLink invLink = CrafterBarrier.InventoryLink.getOrCreate(targetPipe.getWorld(),
-					targetPipe.getRouterId(), targetPipe.getPos().offset(targetPipe.getPointedOrientation()), dir);
+			CrafterBarrier.InventoryLink invLink = CrafterBarrier.InventoryLink.getOrCreate(targetPipe, dir);
 			CrafterBarrier.DeliveryLine deliveryLine = new CrafterBarrier.DeliveryLine(craftingTask, this, liquid.getFluid(), i, amount, invLink);
 			template.addRequirement(new FluidResource(liquid, amount, liquidTarget[i]), new CraftingChassieInformation(i, getPositionInt(), deliveryLine));
 			craftingTask.lines.add(deliveryLine);
-			CrafterBarrier cb = CrafterBarrier.GetOrCreateBarrier(invLink.posW, invLink.posB);
-			cb.registry.put(craftingTask, true);
-			if (craftingTask.queueManager == null)
-				craftingTask.queueManager = cb;
 		}
 
-		if (getUpgradeManager().hasByproductExtractor() && getByproductItem() != null) {
-			template.addByproduct(getByproductItem());
-		}
+		//		if (getUpgradeManager().hasByproductExtractor() && getByproductItem() != null) {
+		//			template.addByproduct(getByproductItem());
+		//		}
+		//		ItemIdentifier resultItem = template.getResultItem().getAsItem();
+		//		IReqCraftingTemplate finalTemplate = template;
+		//
+		//		if (itemsJEI != null)
+		//			itemsJEI.values().stream()
+		//					.filter(o -> !o.getValue1()) // isInput == false
+		//					.map(Pair::getValue2).filter(o -> !o.isEmpty())
+		//					.map(o -> CrafterBarrier.stripTags(o, "chance"))
+		//					.map(ItemIdentifierStack::getFromStack)
+		//					.filter(o -> !o.getItem().equals(resultItem))
+		//					.forEach(finalTemplate::addByproduct);
+		//
+		//		FluidIdentifier resultFluid = FluidIdentifier.get(resultItem);
+		//		if (resultFluid != null)
+		//			finalTemplate.getCheckList().add(resultFluid);
+		//		if (fluidsJEI != null)
+		//			fluidsJEI.values().stream()
+		//					.filter(o -> !o.getValue1()) // isInput == false
+		//					.map(Pair::getValue2).filter(Objects::nonNull)
+		//					.filter(o -> resultFluid == null || !o.getFluid().equals(resultFluid.getFluid()))
+		//					.map(FluidIdentifierStack::getFromStack).filter(Objects::nonNull)
+		//					.map(fluidStack -> {                    // fluidStack = FluidIdentifierStack.getFromStack(o);
+		//						finalTemplate.getCheckList().add(fluidStack.getFluid());
+		//						ItemIdentifierStack container = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(fluidStack);
+		//						container.setStackSize(fluidStack.getAmount());
+		//						return container;
+		//					})
+		//					.forEach(finalTemplate::addByproduct);
 
+		List<ItemIdentifierStack> outputs = getOutputs();
+		outputs.stream()
+				.filter(o -> !o.getItem().isFluidContainer() || FluidIdentifier.get(getCraftedItem()) != FluidIdentifier.get(o))
+				.filter(o -> !o.equals(getCraftedItem()))
+				.forEach(template::addByproduct);
+		//noinspection ResultOfMethodCallIgnored
+		outputs.stream()
+				.filter(o -> o.getItem().isFluidContainer())
+				.map(FluidIdentifier::get)
+				.collect(Collectors.toCollection(template::getCheckList));
+
+		craftingTask.queueManager(queueManager);
 		return template;
+	}
+
+	public List<ItemIdentifierStack> getOutputs() {
+		ArrayList<ItemIdentifierStack> outputs = new ArrayList<>();
+
+		// ItemIdentifierStack resultItem = getCraftedItem();
+
+		if (itemsJEI != null)
+			itemsJEI.values().stream()
+					.filter(o -> !o.getValue1()) // isInput == false
+					.map(Pair::getValue2).filter(o -> !o.isEmpty())
+					.map(o -> CrafterBarrier.stripTags(o, "chance"))
+					.map(ItemIdentifierStack::getFromStack)
+					// .filter(o -> !o.equals(resultItem))
+					.forEach(outputs::add);
+		else
+			outputs.add(getCraftedItem());
+
+		//FluidIdentifier resultFluid = FluidIdentifier.get(resultItem);
+		if (fluidsJEI != null)
+			fluidsJEI.values().stream()
+					.filter(o -> !o.getValue1()) // isInput == false
+					.map(Pair::getValue2).filter(Objects::nonNull)
+					// .filter(o -> resultFluid == null || !o.getFluid().equals(resultFluid.getFluid()))
+					.map(FluidIdentifierStack::getFromStack).filter(Objects::nonNull)
+					.map(fluidStack -> {// fluidStack = FluidIdentifierStack.getFromStack(o);
+						ItemIdentifierStack container = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(fluidStack);
+						container.setStackSize(fluidStack.getAmount());
+						return container;
+					})
+					.forEach(outputs::add);
+		return outputs;
 	}
 
 	public static boolean isNotTool(ItemIdentifier it) { return !isTool(it); } // for method reference
@@ -740,7 +842,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				return true;
 			}
 			int satelliteRouterId = SimpleServiceLocator.routerManager.getIDforUUID(satelliteUUID);
-			if (satelliteRouterId != -1) {
+			if (satelliteRouterId != -1 && getRouter() != null && getRouter().getRouteTable() != null && getRouter().getRouteTable().get(satelliteRouterId) != null) { // NPE !!!
 				return !getRouter().getRouteTable().get(satelliteRouterId).isEmpty();
 			}
 		} else {
@@ -1266,9 +1368,8 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			if (nextOrder.getInformation() instanceof CraftingChassieInformation && ((CraftingChassieInformation) nextOrder.getInformation()).deliveryLine != null) {
 				//			if (nextOrder.getDestination() != null && nextOrder.getInformation() instanceof CraftingChassieInformation &&
 				//					(nextOrder.getDestination() instanceof ModuleCrafter) && (((ModuleCrafter) nextOrder.getDestination()).slot != ModulePositionType.IN_PIPE)) {
-				if (true) continue; // temporary disabled
-
 				int maxToSend = 0; // CrafterBarrier.maxSend(nextOrder, extracted.getCount(), destModule, true);
+				// temporary disabled
 				if (maxToSend <= 0) {
 					_service.getItemOrderManager().deferSend();
 					continue;
@@ -1307,11 +1408,11 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				}
 			} else {
 				ItemStack stackToSend = extracted.splitStack(nextOrder.getAmount());
-				System.err.println("Sent "+ItemIdentifierStack.getFromStack(stackToSend)+" to simple");
+				System.err.println("Sent " + ItemIdentifierStack.getFromStack(stackToSend) + " to simple " + nextOrder.getDestination());
 
 				IRoutedItem item = SimpleServiceLocator.routedItemHelper.createNewTravelItem(stackToSend);
 				item.setTransportMode(TransportMode.Active);
-				if (nextOrder.getDestination() != null)
+				if (nextOrder.getDestination() != null) //  && result.getValue1() != nextOrder.getDestination().getID()
 					item.setDestination(nextOrder.getDestination().getRouter().getSimpleID());
 				item.setAdditionalTargetInformation(nextOrder.getInformation());
 
@@ -1351,7 +1452,52 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		}
 	}
 
+	public void feedOrders(FluidStack extracted, EnumFacing direction) {
+		LogisticsItemOrder startOrder = null;
+		LogisticsItemOrder nextOrder;
+		FluidIdentifier fluidType = FluidIdentifier.get(extracted);
+		while (extracted.amount > 0 && startOrder != (nextOrder = _service.getItemOrderManager().peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA)) && (nextOrder != null)) {
+			if (startOrder == null || startOrder.getAmount() <= 0)
+				startOrder = nextOrder;
+
+			if (!nextOrder.getResource().getItem().isFluidContainer() ||
+					!fluidType.equals(FluidIdentifier.get(nextOrder.getResource().stack))) {
+				_service.getItemOrderManager().deferSend();
+				continue;
+			}
+
+			FluidStack toSend = extracted.copy();
+			toSend.amount = Math.min(nextOrder.getAmount(), toSend.amount);
+			extracted.amount -= toSend.amount;
+
+			ItemIdentifierStack fluidContainer = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(FluidIdentifierStack.getFromStack(toSend));
+			IRoutedItem routed = SimpleServiceLocator.routedItemHelper.createNewTravelItem(fluidContainer);
+			routed.setDestination(cachedFluidDest);
+			if (nextOrder.getDestination() != null && cachedFluidDest != nextOrder.getDestination().getID()) {
+				routed.getInfo().nextDestination = nextOrder.getDestination();
+				routed.getInfo().nextDestInfo = nextOrder.getInformation();
+			}
+			routed.setTransportMode(TransportMode.Active);
+			_service.queueRoutedItem(routed, direction);
+			_service.getItemOrderManager().sendSuccessfull(toSend.amount, false, routed);
+		}
+
+		if (extracted.amount > 0) {
+			ItemIdentifierStack fluidContainer = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(FluidIdentifierStack.getFromStack(extracted));
+			IRoutedItem routed = SimpleServiceLocator.routedItemHelper.createNewTravelItem(fluidContainer);
+			routed.setDestination(cachedFluidDest);
+			routed.setTransportMode(TransportMode.Passive);
+			_service.queueRoutedItem(routed, direction);
+		}
+	}
+
 	public void enabledUpdateEntity() {
+		if (extractorBarrier.get() > 0) {
+			int sets = extractorBarrier.get();
+			extractorBarrier.getAndAdd(-sets);
+			getOutputs().forEach(key ->
+					extractorOrders.compute(key, (it, v) -> (v == null ? 0 : v) + it.getStackSize() * sets));
+		}
 		if (_service.getItemOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) {
 			if (_service.isNthTick(6)) {
 				cacheAreAllOrderesToBuffer();
@@ -1411,93 +1557,90 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 		int itemsleft = itemsToExtract();
 		int stacksleft = stacksToExtract();
-		int loopcount = _service.getItemOrderManager().size();
-		while (itemsleft > 0 && stacksleft > 0 && (_service.getItemOrderManager().hasOrders(ResourceType.CRAFTING, ResourceType.EXTRA)) && loopcount-- > 0) {
-			LogisticsItemOrder nextOrder = _service.getItemOrderManager().peekAtTopRequest(ResourceType.CRAFTING, ResourceType.EXTRA); // fetch but not remove.
-			int maxtosend = Math.min(itemsleft, nextOrder.getResource().stack.getStackSize());
-			maxtosend = Math.min(nextOrder.getResource().getItem().getMaxStackSize(), maxtosend);
-			if (nextOrder.getResource().getItemStack().getItem().equalsWithoutNBT(new ItemStack(LPItems.fluidContainer, 1))) { // nextOrder.getType() == ResourceType.EXTRA &&
-				EnumFacing dir = getRouter().getPipe().getPointedOrientation();
-				if (dir != null) {
-					TileEntity tile = getWorld().getTileEntity(getRouter().getPipe().getPos().offset(dir));
-					if (!tryDrainResult(tile, dir, nextOrder, null))
-						_service.getItemOrderManager().deferSend();
-				} else {
-					_service.getItemOrderManager().deferSend();
-				}
-				continue;
-			} else if (nextOrder.getInformation() instanceof CraftingChassieInformation) {
-				CraftingChassieInformation info = (CraftingChassieInformation) nextOrder.getInformation();
-				if (info.deliveryLine != null && info.deliveryLine.fluidStack != null) {
-					EnumFacing dir = getRouter().getPipe().getPointedOrientation();
-					if (dir != null) {
-						TileEntity tile = getWorld().getTileEntity(getRouter().getPipe().getPos().offset(dir));
-						if (!tryDrainResult(tile, dir, nextOrder, info.deliveryLine))
-							_service.getItemOrderManager().deferSend();
-					}
-					continue;
-				}
-			}
-			// retrieve the new crafted items
-			ItemStack extracted = null;
-			NeighborTileEntity<TileEntity> adjacent = null; // there has to be at least one adjacentCrafter at this point; adjacent wont stay null
-			for (NeighborTileEntity<TileEntity> adjacentCrafter : adjacentCrafters) {
-				adjacent = adjacentCrafter;
-				extracted = extract(adjacent, nextOrder.getResource(), maxtosend);
-				if (extracted != null && !extracted.isEmpty()) {
-					break;
-				}
-			}
-			if (extracted == null || extracted.isEmpty()) {
-				_service.getItemOrderManager().deferSend();
-				break;
-			}
-			_service.getCacheHolder().trigger(CacheTypes.Inventory);
-			lastAccessedCrafter = new WeakReference<>(adjacent.getTileEntity());
-			// send the new crafted items to the destination
-			System.err.println("ModuleCrafter extracted " + ItemIdentifierStack.getFromStack(extracted));
-			feedOrders(extracted, adjacent.getDirection());
-		}
 
+		for (Iterator<Map.Entry<ItemIdentifierStack, Integer>> entryIterator = extractorOrders.entrySet().iterator(); entryIterator.hasNext(); ) {
+			Map.Entry<ItemIdentifierStack, Integer> entry = entryIterator.next();
+			if (itemsleft <= 0) break;
+			if (stacksleft <= 0) break;
+			if (entry.getKey().getItem().isFluidContainer()) {
+				FluidStack extractedFluid = tryDrainResult(getRouter().getPipe(), FluidIdentifierStack.getFromStack(entry.getKey()));
+				if (extractedFluid == null) continue;
+				entry.setValue(entry.getValue() - extractedFluid.amount);
+				if (entry.getValue() <= 0)
+					entryIterator.remove();
+				feedOrders(extractedFluid, cachedFluidDir);
+			} else {
+				ItemResource toExtract = new ItemResource(entry.getKey(), null);
+				for (NeighborTileEntity<TileEntity> adjacentCrafter : adjacentCrafters) {
+					ItemStack extracted = extract(adjacentCrafter, toExtract, Math.min(entry.getValue(), itemsleft));
+					if (extracted != null && !extracted.isEmpty()) {
+						itemsleft -= extracted.getCount();
+						stacksleft -= 1;
+
+						System.err.println("ModuleCrafter extracted " + ItemIdentifierStack.getFromStack(extracted)
+								+ " ... " + stackToString(extracted));
+						entry.setValue(entry.getValue() - extracted.getCount());
+						if (entry.getValue() <= 0)
+							entryIterator.remove();
+						feedOrders(extracted, adjacentCrafter.getDirection());
+					}
+				}
+			}
+		}
 	}
 
-	private boolean tryDrainResult(TileEntity tile, EnumFacing dir, LogisticsItemOrder nextOrder, CrafterBarrier.DeliveryLine deliveryLine) {
-		if (tile == null) return false;
-		if (!tile.hasCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, dir)) return false;
-		IFluidHandler fluidHandler = tile.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, dir);
-		if (fluidHandler == null) return false;
-		FluidIdentifierStack orderStack = FluidIdentifierStack.getFromStack(nextOrder.getResource().getItemStack());
-		if (orderStack == null) return false;
-		FluidStack canDrain = fluidHandler.drain(deliveryLine == null ? orderStack.makeFluidStack() : deliveryLine.fluidStack, false);
-		if (canDrain == null) return false;
-		if (deliveryLine != null && !orderStack.getFluid().getFluid().equals(canDrain.getFluid())) {
-			System.err.println("FluidStack not equal to DeliveryLine. " + deliveryLine.group.owner.getCraftedItem());
-			return false;
-		}
-		canDrain.amount = Math.min(canDrain.amount, orderStack.getAmount());
-		orderStack.setAmount(canDrain.amount);
-		Pair<Integer, Integer> result = SimpleServiceLocator.logisticsFluidManager.getBestReply(orderStack, getRouter(), new ArrayList<>());
-		if (result.getValue2() <= 0) {
-			System.out.println("No space for fluid: " + orderStack.makeFluidStack().getUnlocalizedName());
-			return false;
-		}
-		FluidStack toSend = fluidHandler.drain(canDrain, true);
-		if (toSend == null) {
-			System.err.println("FluidStack not drained. " + orderStack + (deliveryLine == null ? "" : ", " + deliveryLine.group.owner.getCraftedItem()));
-			return false;
-		}
+	private FluidStack tryDrainResult(CoreRoutedPipe pipe, FluidIdentifierStack wanted) {//, CrafterBarrier.DeliveryLine deliveryLine) {
+		int loopCount = EnumFacing.VALUES.length;
+		EnumFacing dir = cachedFluidDir;
+		if (dir == null) pipe.getPointedOrientation();
+		if (dir == null) dir = EnumFacing.values()[0];
+		int i = dir.getIndex();
+		BlockPos myPos = pipe.getPos();
+		while (loopCount-- > 0) {
+			dir = EnumFacing.VALUES[i];
+			i = (i + 1) % EnumFacing.VALUES.length;
+			if (pipe.isSideBlocked(dir, false)) continue;
+			TileEntity tile = pipe.getWorld().getTileEntity(myPos.offset(dir));
+			if (tile == null) continue;
+			IFluidHandler fluidHandler = tile.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, dir);
+			if (fluidHandler == null) continue;
+			cachedFluidDir = dir;
 
-		ItemIdentifierStack liquidContainer = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(FluidIdentifierStack.getFromStack(toSend));
-		IRoutedItem routed = SimpleServiceLocator.routedItemHelper.createNewTravelItem(liquidContainer);
-		routed.setDestination(result.getValue1());
-		if (result.getValue1() != nextOrder.getDestination().getID()) {
-			routed.getInfo().nextDestination = nextOrder.getDestination();
-			routed.getInfo().nextDestInfo = nextOrder.getInformation();
+			//FluidIdentifierStack orderStack = FluidIdentifierStack.getFromStack(nextOrder.getResource().getItemStack());
+			//if (wanted == null) return null;
+			//FluidStack canDrain = fluidHandler.drain(deliveryLine == null ? wanted.makeFluidStack() : deliveryLine.fluidStack, false);
+			FluidStack canDrain = wanted.makeFluidStack();
+			if (canDrain == null) return null;
+			//			if (deliveryLine != null && !wanted.getFluid().getFluid().equals(canDrain.getFluid())) {
+			//				System.err.println("FluidStack not equal to DeliveryLine. " + deliveryLine.group.owner.getCraftedItem());
+			//				return null;
+			//			}
+			canDrain.amount = Math.min(canDrain.amount, wanted.getAmount());
+			// orderStack.setAmount(canDrain.amount);
+			Pair<Integer, Integer> result = SimpleServiceLocator.logisticsFluidManager.getBestReply(wanted, getRouter(), new ArrayList<>());
+			if (result.getValue2() <= 0) {
+				System.out.println("No space for fluid: " + wanted.makeFluidStack().getUnlocalizedName());
+				return null;
+			}
+			canDrain.amount = Math.min(canDrain.amount, result.getValue2());
+			cachedFluidDest = result.getValue1();
+			FluidStack toSend = fluidHandler.drain(canDrain, true);
+			if (toSend != null && toSend.amount > 0) return toSend;
+			//return SimpleServiceLocator.logisticsFluidManager.getFluidContainer(FluidIdentifierStack.getFromStack(toSend));
+			//			ItemIdentifierStack liquidContainer =
+
+			//			IRoutedItem routed = SimpleServiceLocator.routedItemHelper.createNewTravelItem(liquidContainer);
+			//			routed.setDestination(result.getValue1());
+			//			if (nextOrder.getDestination() != null && result.getValue1() != nextOrder.getDestination().getID()) {
+			//				routed.getInfo().nextDestination = nextOrder.getDestination();
+			//				routed.getInfo().nextDestInfo = nextOrder.getInformation();
+			//			}
+			//			routed.setTransportMode(TransportMode.Active);
+			//			_service.queueRoutedItem(routed, dir);
+			//			_service.getItemOrderManager().sendSuccessfull(toSend.amount, false, routed);
+			//			return true;
 		}
-		routed.setTransportMode(TransportMode.Active);
-		_service.queueRoutedItem(routed, dir);
-		_service.getItemOrderManager().sendSuccessfull(toSend.amount, false, routed);
-		return true;
+		return null;
 	}
 
 	private boolean doesExtractionMatch(LogisticsItemOrder nextOrder, ItemIdentifier extractedID) {
@@ -1767,7 +1910,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		guiWatcher.remove(player);
 	}
 
-	public void setRecipe(Map<Integer, Pair<Boolean, ItemStack>> items, Map<Integer, Pair<Boolean, FluidStack>> fluids) {
+	public void setRecipe(Map<Integer, Pair<Boolean, ItemStack>> items, Map<Integer, Pair<Boolean, FluidStack>> fluids, boolean craftingGrid, Object recipeResult) {
 		this.itemsJEI = items;
 
 		List<Pair<Boolean, ItemStack>> itemCollection = items.entrySet().stream()
@@ -1775,35 +1918,52 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				//.filter(o -> o.getValue2() != null && !o.getValue2().isEmpty())
 				.collect(Collectors.toList());
 
+		List<ItemStack> inputCollection = itemCollection.stream().filter(Pair::getValue1).map(Pair::getValue2).collect(Collectors.toList());
+		if (craftingGrid) {
+			Map<ItemIdentifier, Integer> newCollection = new HashMap<>();
+			for (ItemStack entry : inputCollection)
+				if (entry != null && !entry.isEmpty()) {
+					ItemIdentifier id = ItemIdentifier.get(entry);
+					newCollection.put(id, newCollection.getOrDefault(id, 0) + entry.getCount());
+				}
+			inputCollection = newCollection.entrySet().stream()
+					.sorted((o1, o2) -> o2.getValue().equals(o1.getValue()) ? o2.getKey().compareTo(o1.getKey()) : o2.getValue() - o1.getValue())
+					.map(o -> o.getKey().makeNormalStack(o.getValue()))
+					.collect(Collectors.toList());
+		}
+
 		AtomicInteger i1 = new AtomicInteger(0);
-		itemCollection.stream().filter(Pair::getValue1)
+		inputCollection
 				.forEach(o -> {
 					if (i1.get() < 9)
-						_dummyInventory.setInventorySlotContents(i1.getAndAdd(1), o.getValue2());
+						_dummyInventory.setInventorySlotContents(i1.getAndAdd(1), stripTags(o));
 				});
 		IntStream.range(i1.get(), _dummyInventory.getSizeInventory())
 				.forEach(i -> _dummyInventory.setInventorySlotContents(i, ItemStack.EMPTY));
-		itemCollection.stream()
-				.filter(o -> !o.getValue1()).findFirst()
-				.ifPresent(o -> _dummyInventory.setInventorySlotContents(9, o.getValue2()));
+		//if (recipeResult == null)
+		//		itemCollection.stream()
+		//				.filter(o -> !o.getValue1()).findFirst()
+		//				.ifPresent(o -> _dummyInventory.setInventorySlotContents(9, stripTags(o.getValue2())));
 
-		AtomicInteger n = new AtomicInteger(priority);
-
-		items.entrySet().stream()
-				.sorted(Comparator.comparingInt(Map.Entry::getKey)).map(Map.Entry::getValue)
-				.filter(o -> o.getValue2() != null && !o.getValue2().isEmpty())
-				.filter(o -> !o.getValue1())
-				.filter(o -> n.getAndDecrement() == 0)
-				.findFirst().ifPresent(o -> _dummyInventory.setInventorySlotContents(9, o.getValue2()));
+		//		AtomicInteger n = new AtomicInteger(priority);
 
 		this.fluidsJEI = fluids;
 		fluids.entrySet().stream()
 				.sorted(Comparator.comparingInt(Map.Entry::getKey)).map(Map.Entry::getValue)
 				.filter(o -> o.getValue2() != null)
 				.filter(o -> !o.getValue1())
-				.filter(o -> n.getAndDecrement() == 0)
+				//.filter(o -> n.getAndDecrement() == 0)
+				.filter(o -> recipeResult == null || recipeResult instanceof FluidStack && ((FluidStack) recipeResult).getFluid().equals(o.getValue2().getFluid()))
 				.findFirst().ifPresent(o -> _dummyInventory.setInventorySlotContents(9,
 				SimpleServiceLocator.logisticsFluidManager.getFluidContainer(FluidIdentifierStack.getFromStack(o.getValue2()))));
+
+		items.entrySet().stream()
+				.sorted(Comparator.comparingInt(Map.Entry::getKey)).map(Map.Entry::getValue)
+				.filter(o -> o.getValue2() != null && !o.getValue2().isEmpty())
+				.filter(o -> !o.getValue1())
+				//.filter(o -> n.getAndDecrement() == 0)
+				.filter(o -> recipeResult == null || recipeResult instanceof ItemStack && ((ItemStack) recipeResult).getItem().equals(o.getValue2().getItem()))
+				.findFirst().ifPresent(o -> _dummyInventory.setInventorySlotContents(9, stripTags(o.getValue2())));
 
 		List<Pair<Boolean, FluidStack>> fluidCollection = fluids.entrySet().stream()
 				.sorted(Comparator.comparingInt(Map.Entry::getKey)).map(Map.Entry::getValue)

@@ -35,6 +35,7 @@ import logisticspipes.routing.order.IOrderInfoProvider;
 import logisticspipes.routing.order.IOrderInfoProvider.ResourceType;
 import logisticspipes.routing.order.LinkedLogisticsOrderList;
 import logisticspipes.routing.order.LogisticsOrderManager;
+import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.tuples.Pair;
 
 public class RequestTreeNode {
@@ -625,6 +626,15 @@ public class RequestTreeNode {
 
 	private void destroy() {
 		parentNode.remove(this);
+	}
+
+	protected HashSet<FluidIdentifier> collectCheckSpace() {
+		HashSet<FluidIdentifier> res = new HashSet<>();
+		for (RequestTreeNode crafter : subRequests)
+			res.addAll(crafter.collectCheckSpace());
+		for (ICraftingTemplate crafter : usedCrafters)
+			res.addAll(crafter.getCheckList());
+		return res;
 	}
 
 	private class CraftingSorterNode implements Comparable<CraftingSorterNode> {

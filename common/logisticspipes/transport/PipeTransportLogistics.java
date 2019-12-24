@@ -72,6 +72,7 @@ import logisticspipes.utils.FluidIdentifierStack;
 import logisticspipes.utils.InventoryHelper;
 import logisticspipes.utils.OrientationsUtil;
 import logisticspipes.utils.SyncList;
+import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 import logisticspipes.utils.tuples.Pair;
 import logisticspipes.utils.tuples.Triplet;
@@ -596,7 +597,7 @@ public class PipeTransportLogistics {
 							ModuleCrafter.CraftingChassieInformation information = (ModuleCrafter.CraftingChassieInformation) arrivingItem.getAdditionalTargetInformation();
 							int slot = information.getCraftingSlot();
 							ItemStack toAdd = arrivingItem.getItemIdentifierStack().makeNormalStack();
-							int added = ((ISpecialInsertion) util).addToSlot(toAdd, deliveryLine == null ? slot : deliveryLine.assignedSlot);
+							int added = ((ISpecialInsertion) util).addToSlot(toAdd, deliveryLine == null ? slot : deliveryLine.getAssignedSlot());
 							arrivingItem.getItemIdentifierStack().lowerStackSize(added);
 							if (deliveryLine != null && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
 								System.err.println("+insertedCount " + added + " into " + deliveryLine);
@@ -611,8 +612,13 @@ public class PipeTransportLogistics {
 						ItemStack added = InventoryHelper.getTransactorFor(tile, insertion).add(arrivingItem.getItemIdentifierStack().makeNormalStack(), insertion, true);
 
 						arrivingItem.getItemIdentifierStack().lowerStackSize(added.getCount());
+
+						ItemIdentifier item = arrivingItem.getItemIdentifierStack().getItem();
+						if (ModuleCrafter.isConfigurator(item)) //ModuleCrafter.isTool(item) ||
+							CrafterBarrier.availableConfigurator.add(item);
+
 						if (deliveryLine != null && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
-							System.err.println(arrivingItem.getItemIdentifierStack() + " +insertedCount " + added.getCount() + " into " + String.format("%8x", deliveryLine.hashCode()) + " slot:" + deliveryLine.assignedSlot + ", " + deliveryLine.group.owner.getCraftedItem());
+							System.err.println(arrivingItem.getItemIdentifierStack() + " +insertedCount " + added.getCount() + " into " + String.format("%8x", deliveryLine.hashCode()) + " slot:" + deliveryLine.getAssignedSlot() + ", " + deliveryLine.group.owner.getCraftedItem());
 							deliveryLine.insertedCount.addAndGet(added.getCount());
 						}
 

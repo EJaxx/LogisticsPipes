@@ -33,7 +33,6 @@ import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.PacketHandler;
-import logisticspipes.network.packets.SetGhostItemPacket;
 import logisticspipes.network.packets.cpipe.CPipeCleanupImport;
 import logisticspipes.network.packets.cpipe.CPipeCleanupToggle;
 import logisticspipes.network.packets.pipe.CraftingPipeSetSatellitePacket;
@@ -388,11 +387,11 @@ public class GuiCraftingPipe extends ModuleBaseGui {
 		cleanupModeButton.displayString = StringUtils.translate(GuiCraftingPipe.PREFIX + (_pipe.cleanupModeIsExclude ? "Exclude" : "Include"));
 	}
 
-	public void transferRecipe(Map<Integer, Pair<Boolean, ItemStack>> itemsJEI, Map<Integer, Pair<Boolean, FluidStack>> fluidsJEI) {
+	public void transferRecipe(Map<Integer, Pair<Boolean, ItemStack>> itemsJEI, Map<Integer, Pair<Boolean, FluidStack>> fluidsJEI, boolean craftingGrid, Object recipeResult) {
 		boolean inHand = module.getSlot() == LogisticsModule.ModulePositionType.IN_HAND;
 		ModuleCrafter myModule = (ModuleCrafter) module;
 		CrafterBarrier.SetRecipePacket packet = PacketHandler.getPacket(CrafterBarrier.SetRecipePacket.class);
-		packet.setRecipe(inHand, itemsJEI, fluidsJEI);
+		packet.setRecipe(inHand, craftingGrid, itemsJEI, fluidsJEI, recipeResult);
 		if (!inHand) {
 			packet.setInteger(myModule.getPositionInt())
 					.setBlockPos(myModule.getRouter().getPipe().getPos())

@@ -540,12 +540,12 @@ public class ItemDisplay {
 			int y = mc.currentScreen.height - Mouse.getY() * mc.currentScreen.height / this.mc.displayHeight - 1;
 
 			ItemIdentifierStack item = itemHover(x, y, 0);
-			if (item != null && !item.makeNormalStack().isEmpty()) {
+			if (item != null) {
 				FluidIdentifierStack fluid = SimpleServiceLocator.logisticsFluidManager.getFluidFromContainer(item);
 				LogisticsPipes.jeiRuntime.getRecipesGui().show(
 						LogisticsPipes.jeiRuntime.getRecipeRegistry().createFocus(
 								c == 'u' ? IFocus.Mode.INPUT : IFocus.Mode.OUTPUT,
-								fluid == null ? item.getItem().makeNormalStack(1) : fluid.makeFluidStack()));
+								fluid == null ? item.getItem().makeNormalStack(1) : fluid.getFluid().makeFluidStack(1)));
 			}
 		}
 		if (!requestCountBar.handleKey(c, i)) {

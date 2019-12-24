@@ -1,20 +1,30 @@
 package logisticspipes.pipes.basic.fluid;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.world.World;
 
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTank;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.ProbeMode;
+import mcjty.theoneprobe.apiimpl.styles.ItemStyle;
+
 import logisticspipes.LPConstants;
+import logisticspipes.LPItems;
 import logisticspipes.interfaces.ITankUtil;
 import logisticspipes.interfaces.routing.IRequireReliableFluidTransport;
 import logisticspipes.logisticspipes.IRoutedItem;
@@ -27,7 +37,9 @@ import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
 import logisticspipes.proxy.MainProxy;
 import logisticspipes.proxy.SimpleServiceLocator;
 import logisticspipes.routing.ItemRoutingInformation;
+import logisticspipes.routing.order.LogisticsFluidOrder;
 import logisticspipes.routing.order.LogisticsFluidOrderManager;
+import logisticspipes.routing.order.LogisticsItemOrder;
 import logisticspipes.routing.order.LogisticsOrderManager;
 import logisticspipes.textures.Textures;
 import logisticspipes.textures.Textures.TextureType;
@@ -48,6 +60,37 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 
 	public FluidRoutedPipe(Item item) {
 		super(new PipeFluidTransportLogistics(), item);
+	}
+
+	public String vol(int v) {
+		if (v % 1000 == 0) return String.format("%-5d B", v / 1000);
+		if (v % 144 == 0) return String.format("%-5d I", v / 144);
+		if (v % 144 / 4 == 0) return String.format("%-5.2f I", 1.0 * v / 144);
+		if (v > 1000000000) return String.format("%-7.3f MB", 1.0 * v / 1000000000);
+		if (v > 1000000) return String.format("%-6.2f kB", 1.0 * v / 1000000);
+		if (v > 1000) return String.format("%-5.1f B", 1.0 * v / 1000);
+		return String.format("%-5d mB", v);
+	}
+
+	@Override
+	public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World world, IBlockState blockState, IProbeHitData data) {
+		super.addProbeInfo(mode, probeInfo, player, world, blockState, data);
+		if (_orderFluidManager != null) {
+			HashMap<ItemIdentifierStack, Integer> ls = new HashMap<>();
+			HashMap<ItemIdentifierStack, String> names = new HashMap<>();
+			for (LogisticsFluidOrder o : _orderFluidManager) {
+				ItemIdentifierStack container = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(o.getFluid().makeFluidIdentifierStack(1));
+				ls.put(container, ls.getOrDefault(container, 0) + o.getAmount());
+				names.put(container, o.getFluid().makeFluidStack(1).getLocalizedName());
+			}
+			if (!ls.isEmpty())
+				probeInfo.text("Orders>>");
+			ls.keySet().stream().sorted().forEach(key ->
+					probeInfo.horizontal().item(
+							key.makeNormalStack(),
+							new ItemStyle().width(16).height(8))
+							.text("x" + vol(ls.get(key))).text(names.get(key)));
+		}
 	}
 
 	@Override

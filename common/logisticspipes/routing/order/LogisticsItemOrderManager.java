@@ -59,7 +59,7 @@ public class LogisticsItemOrderManager extends LogisticsOrderManager<LogisticsIt
 		if (info instanceof ModuleCrafter.CraftingChassieInformation) {
 			CrafterBarrier.DeliveryLine line = ((ModuleCrafter.CraftingChassieInformation) info).deliveryLine;
 			if (line != null)
-				System.err.println("recipe: " + line.group.owner.getCraftedItem() + ", to slot: "+line.assignedSlot);
+				System.err.println("recipe: " + line.group.owner.getCraftedItem());
 		}
 		LogisticsItemOrder order = new LogisticsItemOrder(new DictResource(stack, null), requester, type, info);
 		_orders.addLast(order);
