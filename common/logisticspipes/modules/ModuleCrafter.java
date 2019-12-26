@@ -178,6 +178,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	public Map<Integer, Pair<Boolean, FluidStack>> fluidsJEI;
 	public EnumFacing cachedFluidDir;
 	private Integer cachedFluidDest;
+	private IReqCraftingTemplate template;
 
 	public ModuleCrafter() {
 		for (int i = 0; i < fuzzyCraftingFlagArray.length; i++) {
@@ -207,6 +208,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	@Override
 	public void clearOrders() {
 		_lostItems.clear();
+		template = null;
 	}
 
 	/**
@@ -563,6 +565,8 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 	@Override
 	public ICraftingTemplate addCrafting(IResource toCraft) {
+		if (template != null & toCraft.matches(getCraftedItem().getItem(), IResource.MatchSettings.NORMAL))
+			return template;
 
 		EnumFacing dir = getRouter().getPipe().getPointedOrientation();
 		if (dir == null) return null;
@@ -573,7 +577,6 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		if (stack == null) {
 			return null;
 		}
-		IReqCraftingTemplate template = null;
 		if (this.getUpgradeManager().isFuzzyUpgrade() && outputFuzzyFlags.getBitSet().nextSetBit(0) != -1) {
 			if (toCraft instanceof DictResource) {
 				for (ItemIdentifierStack craftable : stack) {
@@ -727,38 +730,6 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			template.addRequirement(new FluidResource(liquid, amount, liquidTarget[i]), new CraftingChassieInformation(i, getPositionInt(), deliveryLine));
 			craftingTask.lines.add(deliveryLine);
 		}
-
-		//		if (getUpgradeManager().hasByproductExtractor() && getByproductItem() != null) {
-		//			template.addByproduct(getByproductItem());
-		//		}
-		//		ItemIdentifier resultItem = template.getResultItem().getAsItem();
-		//		IReqCraftingTemplate finalTemplate = template;
-		//
-		//		if (itemsJEI != null)
-		//			itemsJEI.values().stream()
-		//					.filter(o -> !o.getValue1()) // isInput == false
-		//					.map(Pair::getValue2).filter(o -> !o.isEmpty())
-		//					.map(o -> CrafterBarrier.stripTags(o, "chance"))
-		//					.map(ItemIdentifierStack::getFromStack)
-		//					.filter(o -> !o.getItem().equals(resultItem))
-		//					.forEach(finalTemplate::addByproduct);
-		//
-		//		FluidIdentifier resultFluid = FluidIdentifier.get(resultItem);
-		//		if (resultFluid != null)
-		//			finalTemplate.getCheckList().add(resultFluid);
-		//		if (fluidsJEI != null)
-		//			fluidsJEI.values().stream()
-		//					.filter(o -> !o.getValue1()) // isInput == false
-		//					.map(Pair::getValue2).filter(Objects::nonNull)
-		//					.filter(o -> resultFluid == null || !o.getFluid().equals(resultFluid.getFluid()))
-		//					.map(FluidIdentifierStack::getFromStack).filter(Objects::nonNull)
-		//					.map(fluidStack -> {                    // fluidStack = FluidIdentifierStack.getFromStack(o);
-		//						finalTemplate.getCheckList().add(fluidStack.getFluid());
-		//						ItemIdentifierStack container = SimpleServiceLocator.logisticsFluidManager.getFluidContainer(fluidStack);
-		//						container.setStackSize(fluidStack.getAmount());
-		//						return container;
-		//					})
-		//					.forEach(finalTemplate::addByproduct);
 
 		List<ItemIdentifierStack> outputs = getOutputs();
 		outputs.stream()
@@ -1186,10 +1157,12 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void setDummyInventorySlot(int slot, ItemStack itemstack) {
+		template = null;
 		_dummyInventory.setInventorySlotContents(slot, itemstack);
 	}
 
 	public void importFromCraftingTable(EntityPlayer player) {
+		template = null;
 		if (MainProxy.isClient(getWorld())) {
 			// Send packet asking for import
 			final CoordinatesPacket packet = PacketHandler.getPacket(CPipeSatelliteImport.class).setModulePos(this);
@@ -1222,6 +1195,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void priorityUp(EntityPlayer player) {
+		template = null;
 		priority++;
 		if (MainProxy.isClient(player.world)) {
 			MainProxy.sendPacketToServer(PacketHandler.getPacket(CraftingPipePriorityUpPacket.class).setModulePos(this));
@@ -1231,6 +1205,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void priorityDown(EntityPlayer player) {
+		template = null;
 		priority--;
 		if (MainProxy.isClient(player.world)) {
 			MainProxy.sendPacketToServer(PacketHandler.getPacket(CraftingPipePriorityDownPacket.class).setModulePos(this));
@@ -1256,6 +1231,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void changeFluidAmount(int change, int slot, EntityPlayer player) {
+		template = null;
 		if (MainProxy.isClient(player.world)) {
 			MainProxy.sendPacketToServer(PacketHandler.getPacket(FluidCraftingAmount.class).setInteger2(slot).setInteger(change).setModulePos(this));
 		} else {
@@ -1268,6 +1244,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void defineFluidAmount(int integer, int slot) {
+		template = null;
 		if (MainProxy.isClient(getWorld())) {
 			amount[slot] = integer;
 		}
@@ -1278,6 +1255,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void setFluidAmount(int[] amount) {
+		template = null;
 		if (MainProxy.isClient(getWorld())) {
 			this.amount = amount;
 		}
@@ -1827,10 +1805,12 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 	@Override
 	public void clearCache() {
+		template = null;
 		cachedCrafters = null;
 	}
 
 	public void importCleanup() {
+		template = null;
 		for (int i = 0; i < 10; i++) {
 			_cleanupInventory.setInventorySlotContents(i, _dummyInventory.getStackInSlot(i));
 		}
@@ -1843,6 +1823,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void toogleCleaupMode() {
+		template = null;
 		cleanupModeIsExclude = !cleanupModeIsExclude;
 	}
 
@@ -1877,24 +1858,28 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void setSatelliteUUID(UUID pipeID) {
+		template = null;
 		this.satelliteUUID = pipeID;
 		updateSatellitesOnClient();
 		updateSatelliteFromIDs = null;
 	}
 
 	public void setAdvancedSatelliteUUID(int i, UUID pipeID) {
+		template = null;
 		this.advancedSatelliteUUIDArray[i] = pipeID;
 		updateSatellitesOnClient();
 		updateSatelliteFromIDs = null;
 	}
 
 	public void setFluidSatelliteUUID(UUID pipeID) {
+		template = null;
 		this.liquidSatelliteUUID = pipeID;
 		updateSatellitesOnClient();
 		updateSatelliteFromIDs = null;
 	}
 
 	public void setAdvancedFluidSatelliteUUID(int i, UUID pipeID) {
+		template = null;
 		this.liquidSatelliteUUIDArray[i] = pipeID;
 		updateSatellitesOnClient();
 		updateSatelliteFromIDs = null;
@@ -1911,6 +1896,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	public void setRecipe(Map<Integer, Pair<Boolean, ItemStack>> items, Map<Integer, Pair<Boolean, FluidStack>> fluids, boolean craftingGrid, Object recipeResult) {
+		template = null;
 		this.itemsJEI = items;
 
 		List<Pair<Boolean, ItemStack>> itemCollection = items.entrySet().stream()

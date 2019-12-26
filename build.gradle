@@ -170,6 +170,7 @@ dependencies {
 //    compile 'codechicken:NotEnoughItems:1.12.2-2.4.+:deobf'
     deobfCompile "mcjty.theoneprobe:TheOneProbe-1.12:1.12-1.4.28-17"
     compile 'codechicken:EnderStorage:1.12.2-2.4.+:deobf'
+    implementation 'codechicken:EnderIO-base:1.12.2-5.0.46:api'
     compile 'net.industrial-craft:industrialcraft-2:2.8.97-ex112:api'
     compile 'li.cil.oc:OpenComputers:MC1.12.2-1.7.+:api'
     compile 'appeng:appliedenergistics2:rv6-stable-6:api'
