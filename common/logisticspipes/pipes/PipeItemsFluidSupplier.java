@@ -13,8 +13,11 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 
+import net.minecraftforge.fluids.FluidActionResult;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import logisticspipes.LogisticsPipes;
 import logisticspipes.interfaces.ITankUtil;
@@ -102,29 +105,23 @@ public class PipeItemsFluidSupplier extends CoreRoutedPipe implements IRequestIt
 		if (getOriginalUpgradeManager().hasSneakyUpgrade()) {
 			orientation = getOriginalUpgradeManager().getSneakyOrientation();
 		}
-		ITankUtil util = SimpleServiceLocator.tankUtilFactory.getTankUtilForTE(tile, orientation);
-		if (util == null) {
-			return;
-		}
 		if (SimpleServiceLocator.pipeInformationManager.isItemPipe(tile)) {
 			return;
 		}
 		if (data.getItemIdentifierStack() == null) {
 			return;
 		}
-		FluidIdentifierStack liquidId = FluidIdentifierStack.getFromStack(data.getItemIdentifierStack());
-		if (liquidId == null) {
-			return;
+
+		ItemStack fluidContainer = data.getItemIdentifierStack().makeNormalStack();
+
+		IFluidHandler fluidHandler = tile.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, orientation);
+		if (fluidHandler != null) {
+			FluidActionResult result = FluidUtil.tryEmptyContainer(fluidContainer, fluidHandler, Integer.MAX_VALUE, null, true);
+			if (result.isSuccess())
+				fluidContainer = result.getResult();
 		}
-		while (data.getItemIdentifierStack().getStackSize() > 0 && util.fill(liquidId, false) == liquidId.getAmount() && this.useEnergy(5)) {
-			util.fill(liquidId, true);
-			data.getItemIdentifierStack().lowerStackSize(1);
-			Item item = data.getItemIdentifierStack().getItem().item;
-			if (item.hasContainerItem(data.getItemIdentifierStack().makeNormalStack())) {
-				Item containerItem = item.getContainerItem();
-				transport.sendItem(new ItemStack(containerItem, 1));
-			}
-		}
+		if (!fluidContainer.isEmpty())
+			transport.sendItem(fluidContainer);
 	}
 
 	@Override
