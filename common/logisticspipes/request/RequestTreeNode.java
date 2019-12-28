@@ -125,16 +125,18 @@ public class RequestTreeNode {
 			CoreRoutedPipe pipe = r.destination.getPipe();
 			if (r.containsFlag(PipeRoutingConnectionType.canRequestFrom)) {
 				if (pipe instanceof ICraft) {
-					ICraftingTemplate craftable = ((ICraft) pipe).addCrafting(iRequestType);
-					if (craftable != null) {
-						for (IFilter filter : r.filters) {
-							if (filter.isBlocked() == filter.isFilteredItem(craftable.getResultItem()) || filter.blockCrafting()) {
-								continue outer;
+					List<ICraftingTemplate> craftableList = ((ICraft) pipe).addCrafting(iRequestType);
+					if (craftableList != null)
+						for (ICraftingTemplate craftable : craftableList)
+							if (craftable != null) {
+								for (IFilter filter : r.filters) {
+									if (filter.isBlocked() == filter.isFilteredItem(craftable.getResultItem()) || filter.blockCrafting()) {
+										continue outer;
+									}
+								}
+								List<IFilter> list = new LinkedList<>(r.filters);
+								crafters.add(new Pair<>(craftable, list));
 							}
-						}
-						List<IFilter> list = new LinkedList<>(r.filters);
-						crafters.add(new Pair<>(craftable, list));
-					}
 				}
 			}
 		}

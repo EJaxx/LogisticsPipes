@@ -115,7 +115,7 @@ public class PipeItemsCraftingLogistics extends CoreRoutedPipe implements ICraft
 	}
 
 	@Override
-	public ICraftingTemplate addCrafting(IResource toCraft) {
+	public List<ICraftingTemplate> addCrafting(IResource toCraft) {
 
 		if (!isEnabled()) {
 			return null;

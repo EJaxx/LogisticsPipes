@@ -573,13 +573,10 @@ public class CrafterBarrier implements Runnable {
 				if ((module = o.line.group.activateRecipe) == null) return;
 				o.line.group.activateRecipe = null;
 				if (te instanceof LogisticsCraftingTableTileEntity && module.getSlot() == LogisticsModule.ModulePositionType.SLOT) {
-					if (module.itemsJEI != null)
-						((LogisticsCraftingTableTileEntity) te).handleNEIRecipePacket(
-								module.itemsJEI.values().stream()
-										.skip(1).limit(9)
-										.map(Pair::getValue2)
-										.toArray(ItemStack[]::new));
-					else {
+					if (module.itemsJEI != null) {
+						ItemStack[] ls = module.itemsJEI.values().stream().filter(Pair::getValue1).map(Pair::getValue2).toArray(ItemStack[]::new);
+						if (ls.length == 9) ((LogisticsCraftingTableTileEntity) te).handleNEIRecipePacket(ls);
+					} else {
 						LogisticsCraftingTableTileEntity table = ((LogisticsCraftingTableTileEntity) te);
 						ItemStack[] arrItems = new ItemStack[9];
 						for (int i = 0; i < 9; i++) {

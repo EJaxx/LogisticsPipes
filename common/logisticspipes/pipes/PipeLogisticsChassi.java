@@ -7,6 +7,7 @@
 
 package logisticspipes.pipes;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -696,17 +697,18 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 	}
 
 	@Override
-	public ICraftingTemplate addCrafting(IResource toCraft) {
+	public List<ICraftingTemplate> addCrafting(IResource toCraft) {
+		List<ICraftingTemplate> res = new ArrayList<>();
 		for (int i = 0; i < getChassiSize(); i++) {
 			LogisticsModule x = _module.getSubModule(i);
 
 			if (x instanceof ICraftItems) {
 				if (((ICraftItems) x).canCraft(toCraft)) {
-					return ((ICraftItems) x).addCrafting(toCraft);
+					res.addAll(((ICraftItems) x).addCrafting(toCraft));
 				}
 			}
 		}
-		return null;
+		return res;
 
 		// trixy code goes here to ensure the right crafter answers the right request
 	}

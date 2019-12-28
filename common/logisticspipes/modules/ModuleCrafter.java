@@ -178,6 +178,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	public Map<Integer, Pair<Boolean, FluidStack>> fluidsJEI;
 	public EnumFacing cachedFluidDir;
 	private Integer cachedFluidDest;
+	private ArrayList<ICraftingTemplate> templateList;
 	private IReqCraftingTemplate template;
 
 	public ModuleCrafter() {
@@ -564,9 +565,9 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 	}
 
 	@Override
-	public ICraftingTemplate addCrafting(IResource toCraft) {
-		if (template != null & toCraft.matches(getCraftedItem().getItem(), IResource.MatchSettings.NORMAL))
-			return template;
+	public List<ICraftingTemplate> addCrafting(IResource toCraft) {
+		if (templateList != null & toCraft.matches(getCraftedItem().getItem(), IResource.MatchSettings.NORMAL))
+			return templateList;
 
 		EnumFacing dir = getRouter().getPipe().getPointedOrientation();
 		if (dir == null) return null;
@@ -743,7 +744,9 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				.collect(Collectors.toCollection(template::getCheckList));
 
 		craftingTask.queueManager(queueManager);
-		return template;
+		templateList = new ArrayList<>();
+		templateList.add(template);
+		return templateList;
 	}
 
 	public List<ItemIdentifierStack> getOutputs() {
