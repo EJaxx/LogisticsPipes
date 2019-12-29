@@ -1,12 +1,13 @@
 package logisticspipes.modplugins.jei;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import net.minecraft.item.ItemStack;
@@ -22,11 +23,13 @@ import mezz.jei.api.recipe.IRecipeCategory;
 import mezz.jei.api.recipe.IRecipeWrapper;
 import mezz.jei.api.recipe.transfer.IRecipeTransferRegistry;
 import mezz.jei.api.ingredients.*;
-import org.apache.commons.io.output.FileWriterWithEncoding;
 
 import logisticspipes.LogisticsPipes;
+import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.utils.FinalNBTTagCompound;
+import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
+import logisticspipes.utils.item.ItemIdentifier;
 import logisticspipes.utils.item.ItemIdentifierStack;
 
 @JEIPlugin
@@ -34,6 +37,9 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 
 	private boolean runme = true;
 	Map<String, List<Ingredients>> recipes = new HashMap<>();
+	private ArrayList<String> out;
+	ArrayList<ItemIdentifier> itemIds;
+	ArrayList<FluidIdentifier> fluidIds;
 
 	@Override
 	public void register(IModRegistry registry) {
@@ -44,36 +50,43 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 
 	class Ingredients implements IIngredients {
 
-		public List<ItemStack> inputItems = new ArrayList<>();
-		public List<ItemStack> outputItems = new ArrayList<>();
-		public List<List<ItemStack>> inputListItems = new ArrayList<>();
-		public List<List<FluidStack>> inputListFluids = new ArrayList<>();
-		public List<FluidStack> inputFluids = new ArrayList<>();
-		public List<FluidStack> outputFluids = new ArrayList<>();
+		public List<Object> inputs = new ArrayList<>(), outputs = new ArrayList<>();
 
 		@Override
-		public <T> void setInput(IIngredientType<T> iIngredientType, T t) {}
+		public <T> void setInput(IIngredientType<T> iIngredientType, T t) {
+			//out.add("setInput(IIngredientType<T>,T) ->\n");
+			setInput(iIngredientType.getIngredientClass(), t);
+		}
 
 		@Override
 		public <T> void setInputs(IIngredientType<T> iIngredientType, List<T> list) {
+			//out.add("setInputs(IIngredientType<T>,List<T>) ->\n");
 			setInput(iIngredientType.getIngredientClass(), list);
 		}
 
 		@Override
 		public <T> void setInputLists(IIngredientType<T> iIngredientType, List<List<T>> list) {
+			//out.add("setInputLists(IIngredientType<T>,List<List<T>>) ->\n");
 			setInputLists(iIngredientType.getIngredientClass(), list);
 		}
 
 		@Override
-		public <T> void setOutput(IIngredientType<T> iIngredientType, T t) { }
+		public <T> void setOutput(IIngredientType<T> iIngredientType, T t) {
+			//out.add("setOutput(IIngredientType<T>,T) ->\n");
+			setOutput(iIngredientType.getIngredientClass(), t);
+		}
 
 		@Override
 		public <T> void setOutputs(IIngredientType<T> iIngredientType, List<T> list) {
+			//out.add("setOutputs(IIngredientType<T>,List<T>) ->\n");
 			setOutputs(iIngredientType.getIngredientClass(), list);
 		}
 
 		@Override
-		public <T> void setOutputLists(IIngredientType<T> iIngredientType, List<List<T>> list) { }
+		public <T> void setOutputLists(IIngredientType<T> iIngredientType, List<List<T>> list) {
+			//out.add("setOutputLists(IIngredientType<T>,List<List<T>>) ->\n");
+			setOutputLists(iIngredientType.getIngredientClass(), list);
+		}
 
 		@Override
 		public <T> List<List<T>> getInputs(IIngredientType<T> iIngredientType) {
@@ -87,44 +100,51 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 
 		@SuppressWarnings("deprecation")
 		@Override
-		public <T> void setInput(Class<? extends T> aClass, T t) { }
+		public <T> void setInput(Class<? extends T> aClass, T t) {
+			//out.add("setInput(Class<T>,T)\n");
+			if (t instanceof List)
+				inputs.addAll((List<Object>) t);
+			else
+				inputs.add(t);
+		}
 
 		@SuppressWarnings("deprecation")
 		@Override
 		public <T> void setInputs(Class<? extends T> aClass, List<T> list) {
-			if (aClass.equals(ItemStack.class)) list.forEach(o -> inputItems.add((ItemStack) o));
-			if (aClass.equals(FluidStack.class)) list.forEach(o -> inputFluids.add((FluidStack) o));
+			//out.add("setInputs(Class<T>,List<T>)\n");
+			inputs.addAll(list);
 		}
 
 		@SuppressWarnings("deprecation")
 		@Override
 		public <T> void setInputLists(Class<? extends T> aClass, List<List<T>> list) {
-			if (aClass.equals(ItemStack.class)) list.forEach(o -> {
-				ArrayList<ItemStack> ls = new ArrayList<>();
-				inputListItems.add(ls);
-				o.forEach(a -> ls.add((ItemStack) a));
-			});
-			if (aClass.equals(FluidStack.class)) list.forEach(o -> {
-				ArrayList<FluidStack> ls = new ArrayList<>();
-				inputListFluids.add(ls);
-				o.forEach(a -> ls.add((FluidStack) a));
-			});
+			//out.add("setInputLists(Class<T>,List<List<T>>)\n");
+			inputs.addAll(list);
 		}
 
 		@SuppressWarnings("deprecation")
 		@Override
-		public <T> void setOutput(Class<? extends T> aClass, T t) { }
+		public <T> void setOutput(Class<? extends T> aClass, T t) {
+			//out.add("setOutput(Class<T>," + t.getClass().getName() + ")\n");
+			if (t instanceof List)
+				outputs.addAll((List<Object>) t);
+			else
+				outputs.add(t);
+		}
 
 		@SuppressWarnings("deprecation")
 		@Override
 		public <T> void setOutputs(Class<? extends T> aClass, List<T> list) {
-			if (aClass.equals(ItemStack.class)) list.forEach(o -> outputItems.add((ItemStack) o));
-			if (aClass.equals(FluidStack.class)) list.forEach(o -> outputFluids.add((FluidStack) o));
+			//out.add("setOutputs(Class<T>,List<T>)\n");
+			outputs.add(list);
 		}
 
 		@SuppressWarnings("deprecation")
 		@Override
-		public <T> void setOutputLists(Class<? extends T> aClass, List<List<T>> list) { }
+		public <T> void setOutputLists(Class<? extends T> aClass, List<List<T>> list) {
+			//out.add("setOutputLists(Class<T>,List<List<T>>)\n");
+			list.forEach(o -> outputs.add(new ArrayList<>(o)));
+		}
 
 		@SuppressWarnings("deprecation")
 		@Override
@@ -138,67 +158,67 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 			return null;
 		}
 
-		void fmtItem(Object _stack, AtomicReference<String> s) {
-			try {
-				if (_stack instanceof ItemStack) {
-					ItemIdentifierStack stack = ItemIdentifierStack.getFromStack((ItemStack) _stack);
-					FinalNBTTagCompound tag = stack.getItem().tag;
-					String ch = tag != null && tag.hasKey("chance")
-							? String.format("%d%% x%d ", tag.getInteger("chance") / 100, stack.getStackSize())
-							: "x" + stack.getStackSize() + " ";
-					Stream.of(stack.getItem().toString().split("[:,]")).skip(1).findFirst().ifPresent(o ->
-							s.set((s.get().isEmpty() ? "" : s + " + ") + ch + o));
-					return;
-				}
-				if (_stack == null) {
-					s.accumulateAndGet("[null]", String::concat);
-					return;
-				}
-				s.accumulateAndGet(_stack.getClass().getName(), String::concat);
-			} catch (Exception e) {
-				s.accumulateAndGet("[" + e.getClass().getName() + "]", String::concat);
+		String fmtList(List _list, String delimiter) {
+			if (_list == null) {
+				return "[null]";
 			}
+			ArrayList<String> res = new ArrayList<>();
+			for (Object stack : _list) {
+				res.add(fmtObject(stack));
+			}
+			return "{" + String.join(delimiter, res) + "}";
 		}
 
-		void fmtFluid(Object _stack, AtomicReference<String> s) {
-			if (_stack instanceof FluidStack) {
-				s.set((s.get().isEmpty() ? "" : s + " + ") +
-						String.format("x%d %s", ((FluidStack) _stack).amount, ((FluidStack) _stack).getLocalizedName()));
-				return;
+		String fmtObject(Object _stack) {
+			try {
+				if (_stack instanceof List && ((List) _stack).size() == 1)
+					_stack = ((List) _stack).iterator().next();
+				if (_stack instanceof List) {
+					return fmtList((List) _stack, "/");
+				}
+				if (_stack instanceof ItemStack) {
+					ItemIdentifierStack stack = ItemIdentifierStack.getFromStack((ItemStack) _stack);
+					ItemIdentifier it = stack.getItem();
+					if (!itemIds.contains(it)) {
+						itemIds.add(it);
+						out.add("ItemId " + itemIds.indexOf(it) + " " + CrafterBarrier.stackToString(it.makeNormalStack(1)) + " " + it + "\n");
+					}
+					FinalNBTTagCompound tag = stack.getItem().tag;
+					//					String ch = tag != null && tag.hasKey("chance")
+					//							? String.format("%d%% x%d ", tag.getInteger("chance") / 100, stack.getStackSize())
+					//							: "x" + stack.getStackSize() + " ";
+					//					Optional<String> rr = Stream.of(stack.getItem().toString().split("[:,]")).skip(1).findFirst();
+					//					if (rr.isPresent())
+					//						return ch + rr.get();
+					String ch = tag != null && tag.hasKey("chance")
+							? "x" + tag.getInteger("chance") / 100
+							: "";
+					return "i" + itemIds.indexOf(it) + 'x' + stack.getStackSize() + ch;
+				}
+				if (_stack instanceof FluidStack) {
+					FluidIdentifier fl = FluidIdentifier.get((FluidStack) _stack);
+					if (!fluidIds.contains(fl)) {
+						fluidIds.add(fl);
+						out.add("FluidId " + fluidIds.indexOf(fl) + " " + ((FluidStack) _stack).getLocalizedName() + "\n");
+					}
+					//return String.format("x%d %s", ((FluidStack) _stack).amount, ((FluidStack) _stack).getLocalizedName());
+					return "f" + fluidIds.indexOf(fl) + "x" + ((FluidStack) _stack).amount;
+				}
+				if (_stack == null) {
+					return "[null]";
+				}
+				return "[" + _stack.getClass().getName() + "]";
+			} catch (Exception e) {
+				return "[" + e.getClass().getName() + "]";
 			}
-			s.accumulateAndGet(_stack.getClass().getName(), String::concat);
 		}
 
 		public String toStringOne() {
-			//if (inputItems.isEmpty() && inputFluids.isEmpty() || !inputListItems.isEmpty()) return null;
-			AtomicReference<String> s1 = new AtomicReference<>("");
-			inputItems.forEach(i -> fmtItem(i, s1));
-			inputListItems.forEach(i -> fmtItem(i.isEmpty() ? ItemStack.EMPTY : i.iterator().next(), s1));
-			inputFluids.forEach(i -> fmtFluid(i, s1));
-			inputListFluids.forEach(i -> fmtFluid(i.isEmpty() ? null : i.iterator().next(), s1));
-			AtomicReference<String> s2 = new AtomicReference<>("");
-			outputItems.forEach(i -> fmtItem(i, s2));
-			outputFluids.forEach(i -> fmtFluid(i, s2));
-			return s1.get() + " -> " + s2.get();
+			return fmtList(inputs, "+") + " " + fmtList(outputs, "+");
 		}
 
 		public List<String> toStringList() {
 			List<String> res = new ArrayList<>();
-			//			AtomicInteger nn = new AtomicInteger();
-			//			inputListItems.forEach(o -> {
-			//				AtomicReference<String> s1 = new AtomicReference<>("");
-			//				o.forEach(i -> fmtItem(i, s1));
-			//				if (!inputListFluids.isEmpty())
-			//					inputListFluids.get(nn.getAndIncrement()).forEach(i -> fmtFluid(i, s1));
-			//				else
-			//					inputFluids.forEach(i -> fmtFluid(i, s1));
-			//				if (!inputListFluids.isEmpty() && inputListItems.size() != inputListFluids.size())
-			//					System.err.println("inputListFluids in toStringList not empty");
-			//				AtomicReference<String> s2 = new AtomicReference<>("");
-			//				outputItems.forEach(i -> fmtItem(i, s2));
-			//				outputFluids.forEach(i -> fmtFluid(i, s2));
-			//				res.add(s1.get() + " -> " + s2.get());
-			//			});
 			String v = toStringOne();
 			if (v != null)
 				res.add(v);
@@ -215,11 +235,11 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 
 	@Override
 	public void run() {
-		while (true) {
-			try {Thread.sleep(1000);} catch (InterruptedException ignored) {}
-			// if (runme) try {runTick();} catch (Exception e) {e.printStackTrace();}
-			runme = false;
-		}
+//		while (true) {
+//			try {Thread.sleep(3000);} catch (InterruptedException ignored) {}
+//			if (runme) try {runTick2();} catch (Exception e) {e.printStackTrace();}
+//			runme = false;
+//		}
 	}
 
 	private void runTick1() {
@@ -242,29 +262,35 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 	private void runTick2() {
 		recipes.clear();
 		try {
-			FileWriterWithEncoding out = new FileWriterWithEncoding("RecipeDump.txt", "utf8");
+			out = new ArrayList<>();
+			itemIds = new ArrayList<>();
+			fluidIds = new ArrayList<>();
 			List<IRecipeCategory> cp = new ArrayList<>(LogisticsPipes.jeiRuntime.getRecipeRegistry().getRecipeCategories());
 			for (IRecipeCategory<IRecipeWrapper> category : cp) {
 				// System.out.println(category.getUid());
 				//LogisticsPipes.jeiRuntime.getRecipeRegistry().getRecipeWrapper()
 				List<Ingredients> ls = new ArrayList<>();
-				recipes.put(category.getUid(), ls);
-				if (category.getUid().startsWith("gregtech:") && !category.getUid().equals("EIOTank") && !category.getUid().startsWith("minecraft:") && !category.getUid().contains("arc_") && !category.getUid().contains("forge_hammer") && !category.getUid().contains("separator") && !category.getUid()
-						.contains("replicator"))
+				String uid = category.getUid();
+				recipes.put(uid, ls);
+				//out.add("Category: " + uid + "\n");
+				if (Stream.of("EIOTank", "covers", "EIOWO", "EIOWC", "Enchanter", "jei.information", "Painter", "arc_", "minecraft.anvil",
+						"xu2_machine", "forge_hammer", "separator", "replicator", "gregtech:distillery").noneMatch(uid::contains))
 					for (IRecipeWrapper recipe : LogisticsPipes.jeiRuntime.getRecipeRegistry().getRecipeWrappers(category)) {
 						Ingredients ing = new Ingredients();
 						ls.add(ing);
 						recipe.getIngredients(ing);
-						ing.toStringList().forEach(s -> {
-							try {
-								out.write(category.getUid() + "=" + s + "\n");
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
-						});
+						ing.toStringList().forEach(s -> out.add("Recipe " + uid + " " + s + "\n"));
 					}
 			}
-			out.close();
+			File fl = new File("RecipeDump.txt_tmp");
+			try (FileWriter outFile = new FileWriter(fl)) {
+				outFile.write(String.join("", out));
+			}
+			File fld = new File("RecipeDump.txt");
+			if (fld.exists())
+				fld.delete();
+			fl.renameTo(fld);
+
 		} catch (IOException ignored) {}
 	}
 
