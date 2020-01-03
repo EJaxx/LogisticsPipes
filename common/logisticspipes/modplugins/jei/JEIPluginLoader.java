@@ -26,6 +26,7 @@ import mezz.jei.api.ingredients.*;
 
 import logisticspipes.LogisticsPipes;
 import logisticspipes.modules.CrafterBarrier;
+import logisticspipes.modules.ModuleCrafter;
 import logisticspipes.utils.FinalNBTTagCompound;
 import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
@@ -136,7 +137,7 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 		@Override
 		public <T> void setOutputs(Class<? extends T> aClass, List<T> list) {
 			//out.add("setOutputs(Class<T>,List<T>)\n");
-			outputs.add(list);
+			outputs.addAll(list);
 		}
 
 		@SuppressWarnings("deprecation")
@@ -177,19 +178,13 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 					return fmtList((List) _stack, "/");
 				}
 				if (_stack instanceof ItemStack) {
-					ItemIdentifierStack stack = ItemIdentifierStack.getFromStack((ItemStack) _stack);
+					ItemIdentifierStack stack = ItemIdentifierStack.getFromStack(CrafterBarrier.stripTags((ItemStack) _stack));
 					ItemIdentifier it = stack.getItem();
 					if (!itemIds.contains(it)) {
 						itemIds.add(it);
 						out.add("ItemId " + itemIds.indexOf(it) + " " + CrafterBarrier.stackToString(it.makeNormalStack(1)) + " " + it + "\n");
 					}
 					FinalNBTTagCompound tag = stack.getItem().tag;
-					//					String ch = tag != null && tag.hasKey("chance")
-					//							? String.format("%d%% x%d ", tag.getInteger("chance") / 100, stack.getStackSize())
-					//							: "x" + stack.getStackSize() + " ";
-					//					Optional<String> rr = Stream.of(stack.getItem().toString().split("[:,]")).skip(1).findFirst();
-					//					if (rr.isPresent())
-					//						return ch + rr.get();
 					String ch = tag != null && tag.hasKey("chance")
 							? "x" + tag.getInteger("chance") / 100
 							: "";
@@ -213,16 +208,8 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 			}
 		}
 
-		public String toStringOne() {
+		public String toString() {
 			return fmtList(inputs, "+") + " " + fmtList(outputs, "+");
-		}
-
-		public List<String> toStringList() {
-			List<String> res = new ArrayList<>();
-			String v = toStringOne();
-			if (v != null)
-				res.add(v);
-			return res;
 		}
 
 	}
@@ -235,11 +222,11 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 
 	@Override
 	public void run() {
-//		while (true) {
-//			try {Thread.sleep(3000);} catch (InterruptedException ignored) {}
-//			if (runme) try {runTick2();} catch (Exception e) {e.printStackTrace();}
-//			runme = false;
-//		}
+		while (true) {
+			try {Thread.sleep(3000);} catch (InterruptedException ignored) {}
+			if (runme) try {runTick2();} catch (Exception e) {e.printStackTrace();}
+			runme = false;
+		}
 	}
 
 	private void runTick1() {
@@ -267,29 +254,40 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 			fluidIds = new ArrayList<>();
 			List<IRecipeCategory> cp = new ArrayList<>(LogisticsPipes.jeiRuntime.getRecipeRegistry().getRecipeCategories());
 			for (IRecipeCategory<IRecipeWrapper> category : cp) {
-				// System.out.println(category.getUid());
-				//LogisticsPipes.jeiRuntime.getRecipeRegistry().getRecipeWrapper()
 				List<Ingredients> ls = new ArrayList<>();
 				String uid = category.getUid();
 				recipes.put(uid, ls);
-				//out.add("Category: " + uid + "\n");
-				if (Stream.of("EIOTank", "covers", "EIOWO", "EIOWC", "Enchanter", "jei.information", "Painter", "arc_", "minecraft.anvil",
-						"xu2_machine", "forge_hammer", "separator", "replicator", "gregtech:distillery").noneMatch(uid::contains))
-					for (IRecipeWrapper recipe : LogisticsPipes.jeiRuntime.getRecipeRegistry().getRecipeWrappers(category)) {
-						Ingredients ing = new Ingredients();
-						ls.add(ing);
-						recipe.getIngredients(ing);
-						ing.toStringList().forEach(s -> out.add("Recipe " + uid + " " + s + "\n"));
+				for (IRecipeWrapper recipe : LogisticsPipes.jeiRuntime.getRecipeRegistry().getRecipeWrappers(category)) {
+					Ingredients ing = new Ingredients();
+					ls.add(ing);
+					recipe.getIngredients(ing);
+					boolean fr = recipe.getClass().getName().contains("GTFuelRecipeWrapper");
+					if (recipe.getClass().getName().contains("GTRecipeWrapper") || fr) {
+						try {
+							Field recipeField = recipe.getClass().getDeclaredField("recipe");
+							recipeField.setAccessible(true);
+							Object recipeVal = recipeField.get(recipe);
+							Field Field1 = recipeVal.getClass().getDeclaredField(fr ? "minVoltage" : "EUt");
+							Field1.setAccessible(true);
+							Field Field2 = recipeVal.getClass().getDeclaredField("duration");
+							Field2.setAccessible(true);
+							out.add(String.format("GTRecipe %s %s %s %s\n", uid, ing.toString(), fr ? Field1.getLong(recipeVal) : Field1.getInt(recipeVal), Field2.getInt(recipeVal)));
+						} catch (NoSuchFieldException | IllegalAccessException ignored) {
+							out.add(String.format("Recipe %s %s\n", uid, ing.toString()));
+						}
+					} else {
+						out.add(String.format("Recipe %s %s\n", uid, ing.toString()));
 					}
+				}
 			}
-			File fl = new File("RecipeDump.txt_tmp");
-			try (FileWriter outFile = new FileWriter(fl)) {
+			//File fl = new File("RecipeDump.txt_tmp");
+			try (FileWriter outFile = new FileWriter("RecipeDump.txt")) {
 				outFile.write(String.join("", out));
 			}
-			File fld = new File("RecipeDump.txt");
-			if (fld.exists())
-				fld.delete();
-			fl.renameTo(fld);
+//			File fld = new File("RecipeDump.txt");
+//			if (fld.exists())
+//				fld.delete();
+//			fl.renameTo(fld);
 
 		} catch (IOException ignored) {}
 	}
