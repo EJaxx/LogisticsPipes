@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import net.minecraft.block.state.IBlockState;
@@ -23,7 +24,10 @@ import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagEnd;
+import net.minecraft.nbt.NBTTagString;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
@@ -109,6 +113,8 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 	private final ModuleUpgradeManager[] _upgradeManagers;
 	private boolean switchOrientationOnTick = true;
 	private boolean init = false;
+	public UUID satelliteItemOverride = null;
+	public UUID satelliteFluidOverride = null;
 
 	// HUD
 	public final LinkedList<ItemIdentifierStack> displayList = new LinkedList<>();
@@ -242,24 +248,26 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 
 	@Override
 	public void readFromNBT(NBTTagCompound nbttagcompound) {
-		try {
-			super.readFromNBT(nbttagcompound);
-			_moduleInventory.readFromNBT(nbttagcompound, "chassi");
-			InventoryChanged(_moduleInventory);
-			_module.readFromNBT(nbttagcompound);
-			int tmp = nbttagcompound.getInteger("Orientation");
-			if (tmp == -1) {
-				pointedDirection = null;
-			} else {
-				pointedDirection = EnumFacingUtil.getOrientation(tmp % 6);
-			}
-			switchOrientationOnTick = (pointedDirection == null);
-			for (int i = 0; i < getChassiSize(); i++) {
-				_upgradeManagers[i].readFromNBT(nbttagcompound, Integer.toString(i));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
+		//		try {
+		super.readFromNBT(nbttagcompound);
+		_moduleInventory.readFromNBT(nbttagcompound, "chassi");
+		InventoryChanged(_moduleInventory);
+		_module.readFromNBT(nbttagcompound);
+		int tmp = nbttagcompound.getInteger("Orientation");
+		if (tmp == -1) {
+			pointedDirection = null;
+		} else {
+			pointedDirection = EnumFacingUtil.getOrientation(tmp % 6);
 		}
+		switchOrientationOnTick = (pointedDirection == null);
+		for (int i = 0; i < getChassiSize(); i++) {
+			_upgradeManagers[i].readFromNBT(nbttagcompound, Integer.toString(i));
+		}
+		satelliteItemOverride = nbttagcompound.hasKey("satelliteItemOverride") ? UUID.fromString(nbttagcompound.getString("satelliteItemOverride")) : null;
+		satelliteFluidOverride = nbttagcompound.hasKey("satelliteFluidOverride") ? UUID.fromString(nbttagcompound.getString("satelliteFluidOverride")) : null;
+		//		} catch (Exception e) {
+		//			e.printStackTrace();
+		//		}
 	}
 
 	@Override
@@ -271,6 +279,10 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 		for (int i = 0; i < getChassiSize(); i++) {
 			_upgradeManagers[i].writeToNBT(nbttagcompound, Integer.toString(i));
 		}
+		if (satelliteItemOverride != null)
+			nbttagcompound.setString("satelliteItemOverride", satelliteItemOverride.toString());
+		if (satelliteFluidOverride != null)
+			nbttagcompound.setString("satelliteFluidOverride", satelliteFluidOverride.toString());
 	}
 
 	@Override
@@ -393,6 +405,8 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 			if (!localModeWatchers.isEmpty()) {
 				MainProxy.sendToPlayerList(PacketHandler.getPacket(ChassiePipeModuleContent.class).setIdentList(ItemIdentifierStack.getListFromInventory(_moduleInventory)).setPosX(getX()).setPosY(getY()).setPosZ(getZ()), localModeWatchers);
 			}
+			if (getWorld() != null)
+				getWorld().getChunkFromBlockCoords(getPos()).markDirty();
 		}
 	}
 
@@ -759,6 +773,15 @@ public abstract class PipeLogisticsChassi extends CoreRoutedPipe implements ICra
 		// TODO Auto-generated method stub
 		// probably not needed, the chasi order manager handles the count, would need to store origin to specifically know this.
 		return 0;
+	}
+
+	public void setSatelliteUUID(UUID uuid, Boolean fluidSatellite) {
+		if (fluidSatellite) {
+			satelliteFluidOverride = uuid;
+		} else {
+			satelliteItemOverride = uuid;
+		}
+		getWorld().getChunkFromBlockCoords(getPos()).markDirty();
 	}
 
 	public static class ChassiTargetInformation implements IAdditionalTargetInformation {

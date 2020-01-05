@@ -9,30 +9,41 @@ package logisticspipes.gui;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.lwjgl.opengl.GL11;
 
+import logisticspipes.blocks.LogisticsSecurityTileEntity;
+import logisticspipes.gui.popup.GuiSelectSatellitePopup;
 import logisticspipes.items.ItemModule;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.network.PacketHandler;
+import logisticspipes.network.abstractpackets.CoordinatesPacket;
 import logisticspipes.network.abstractpackets.ModernPacket;
 import logisticspipes.network.guis.pipe.ChassiGuiProvider;
 import logisticspipes.network.packets.chassis.ChassisGUI;
 import logisticspipes.network.packets.gui.OpenUpgradePacket;
 import logisticspipes.pipes.PipeLogisticsChassi;
+import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
 import logisticspipes.pipes.upgrades.ModuleUpgradeManager;
 import logisticspipes.proxy.MainProxy;
+import logisticspipes.utils.StaticResolve;
 import logisticspipes.utils.gui.DummyContainer;
 import logisticspipes.utils.gui.GuiGraphics;
 import logisticspipes.utils.gui.LogisticsBaseGuiScreen;
 import logisticspipes.utils.gui.SmallGuiButton;
 import logisticspipes.utils.string.StringUtils;
+import network.rs485.logisticspipes.util.LPDataInput;
+import network.rs485.logisticspipes.util.LPDataOutput;
 
 public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 
@@ -45,6 +56,9 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 	private GuiButton[] upgradeConfig = new GuiButton[16];
 
 	private boolean hasUpgradeModuleUpgarde;
+	int normalSlotsY;
+	private SmallGuiButton satOverrideItems;
+	private SmallGuiButton satOverrideFluids;
 
 	public GuiChassiPipe(EntityPlayer player, PipeLogisticsChassi chassi, boolean hasUpgradeModuleUpgarde) { //, GuiScreen previousGui) {
 		super(null);
@@ -54,28 +68,10 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 		this.hasUpgradeModuleUpgarde = hasUpgradeModuleUpgarde;
 
 		DummyContainer dummy = new DummyContainer(player.inventory, _moduleInventory);
-		if (_chassiPipe.getChassiSize() < 5) {
-			dummy.addNormalSlotsForPlayerInventory(18, 97);
-		} else {
-			dummy.addNormalSlotsForPlayerInventory(18, 174);
-		}
-		if (_chassiPipe.getChassiSize() > 0) {
-			dummy.addModuleSlot(0, _moduleInventory, 19, 9, _chassiPipe);
-		}
-		if (_chassiPipe.getChassiSize() > 1) {
-			dummy.addModuleSlot(1, _moduleInventory, 19, 29, _chassiPipe);
-		}
-		if (_chassiPipe.getChassiSize() > 2) {
-			dummy.addModuleSlot(2, _moduleInventory, 19, 49, _chassiPipe);
-		}
-		if (_chassiPipe.getChassiSize() > 3) {
-			dummy.addModuleSlot(3, _moduleInventory, 19, 69, _chassiPipe);
-		}
-		if (_chassiPipe.getChassiSize() > 4) {
-			dummy.addModuleSlot(4, _moduleInventory, 19, 89, _chassiPipe);
-			dummy.addModuleSlot(5, _moduleInventory, 19, 109, _chassiPipe);
-			dummy.addModuleSlot(6, _moduleInventory, 19, 129, _chassiPipe);
-			dummy.addModuleSlot(7, _moduleInventory, 19, 149, _chassiPipe);
+		normalSlotsY = Math.max(97, 9 + _chassiPipe.getChassiSize() * 20 + 12 * 2);
+		dummy.addNormalSlotsForPlayerInventory(18, normalSlotsY);
+		for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+			dummy.addModuleSlot(i, _moduleInventory, 19, 9 + i * 20, _chassiPipe);
 		}
 
 		if (hasUpgradeModuleUpgarde) {
@@ -90,12 +86,7 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 		inventorySlots = dummy;
 
 		xSize = 194;
-		ySize = 186;
-
-		if (_chassiPipe.getChassiSize() > 4) {
-			ySize = 256;
-		}
-
+		ySize = 9 + normalSlotsY + 76 + 9;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -120,6 +111,8 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 			} else {
 				moduleConfigButtons.get(i).visible = _chassiPipe.getLogisticsModule().getSubModule(i).hasGui();
 			}
+			buttonList.add(satOverrideItems = new SmallGuiButton(141, guiLeft + 14 + 28, guiTop + normalSlotsY - 14, 55, 10, _chassiPipe.satelliteItemOverride == null ? "Off" : _chassiPipe.satelliteItemOverride.toString()));
+			buttonList.add(satOverrideFluids = new SmallGuiButton(142, guiLeft + 14 + 80 + 28, guiTop + normalSlotsY - 14, 55, 10, _chassiPipe.satelliteFluidOverride == null ? "Off" : _chassiPipe.satelliteFluidOverride.toString()));
 
 			if (hasUpgradeModuleUpgarde) {
 				upgradeConfig[i * 2] = addButton(new SmallGuiButton(100 + i, guiLeft + 134, guiTop + 12 + i * 20, 10, 10, "!"));
@@ -132,8 +125,7 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 
 	@Override
 	protected void actionPerformed(GuiButton guibutton) {
-
-		if (guibutton.id >= 0 && guibutton.id <= 7) {
+		if (guibutton.id >= 0 && guibutton.id < _chassiPipe.getChassiSize()) {
 			LogisticsModule module = _chassiPipe.getLogisticsModule().getSubModule(guibutton.id);
 			if (module != null) {
 				final ModernPacket packet = PacketHandler.getPacket(ChassisGUI.class).setButtonID(guibutton.id).setPosX(_chassiPipe.getX()).setPosY(_chassiPipe.getY()).setPosZ(_chassiPipe.getZ());
@@ -145,6 +137,17 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 				MainProxy.sendPacketToServer(PacketHandler.getPacket(OpenUpgradePacket.class).setSlot(upgradeslot[i]));
 			}
 		}
+		if (guibutton.id == 141 || guibutton.id == 142) openSubGuiForSatelliteSelection(guibutton.id == 142);
+	}
+
+	private void openSubGuiForSatelliteSelection(boolean fluidSatellite) {
+		this.setSubGui(new GuiSelectSatellitePopup(new BlockPos(_chassiPipe.getX(), _chassiPipe.getY(), _chassiPipe.getZ()), fluidSatellite, uuid -> {
+					if (fluidSatellite) _chassiPipe.satelliteFluidOverride = uuid;
+					else _chassiPipe.satelliteItemOverride = uuid;
+					MainProxy.sendPacketToServer(
+							PacketHandler.getPacket(SetSatelliteUUID.class).setUuid(uuid).setFluidSatellite(fluidSatellite).setBlockPos(_chassiPipe.getPos()));
+				})
+		);
 	}
 
 	@Override
@@ -163,24 +166,12 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 				upgradeConfig[i].visible = _chassiPipe.getModuleUpgradeManager(i / 2).hasGuiUpgrade(i % 2);
 			}
 		}
-		if (_chassiPipe.getChassiSize() > 0) {
-			mc.fontRenderer.drawString(getModuleName(0), 40, 14, 0x404040);
+		for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+			mc.fontRenderer.drawString(getModuleName(i), 40, 14 + i * 20, 0x404040);
 		}
-		if (_chassiPipe.getChassiSize() > 1) {
-			mc.fontRenderer.drawString(getModuleName(1), 40, 34, 0x404040);
-		}
-		if (_chassiPipe.getChassiSize() > 2) {
-			mc.fontRenderer.drawString(getModuleName(2), 40, 54, 0x404040);
-		}
-		if (_chassiPipe.getChassiSize() > 3) {
-			mc.fontRenderer.drawString(getModuleName(3), 40, 74, 0x404040);
-		}
-		if (_chassiPipe.getChassiSize() > 4) {
-			mc.fontRenderer.drawString(getModuleName(4), 40, 94, 0x404040);
-			mc.fontRenderer.drawString(getModuleName(5), 40, 114, 0x404040);
-			mc.fontRenderer.drawString(getModuleName(6), 40, 134, 0x404040);
-			mc.fontRenderer.drawString(getModuleName(7), 40, 154, 0x404040);
-		}
+		mc.fontRenderer.drawString("Satellite Override", 45, normalSlotsY - 18 - 4, 0x404040);
+		mc.fontRenderer.drawString("Item", 18, normalSlotsY - 9 - 4, 0x404040);
+		mc.fontRenderer.drawString("Fluid", 18 + 80, normalSlotsY - 9 - 4, 0x404040);
 	}
 
 	private String getModuleName(int slot) {
@@ -202,14 +193,59 @@ public class GuiChassiPipe extends LogisticsBaseGuiScreen {
 
 	@Override
 	protected void drawGuiContainerBackgroundLayer(float f, int x, int y) {
-		GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-		mc.renderEngine.bindTexture(_chassiPipe.getChassiGUITexture());
-		drawTexturedModalRect(guiLeft, guiTop, 0, 0, xSize, ySize);
+		GuiGraphics.drawGuiBackGround(mc, guiLeft, guiTop, right, bottom, zLevel, true);
+		GuiGraphics.drawPlayerInventoryBackground(mc, guiLeft + 18, guiTop + normalSlotsY);
+		for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+			GuiGraphics.drawSlotBackground(mc, guiLeft + 18, guiTop + 8 + i * 20);
+		}
 		if (hasUpgradeModuleUpgarde) {
 			for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
 				GuiGraphics.drawSlotBackground(mc, guiLeft + 144, guiTop + 8 + i * 20);
 				GuiGraphics.drawSlotBackground(mc, guiLeft + 164, guiTop + 8 + i * 20);
 			}
+		}
+		satOverrideItems.drawButton(mc, x, y, f);
+		satOverrideFluids.drawButton(mc, x, y, f);
+	}
+
+	@StaticResolve
+	public static class SetSatelliteUUID extends CoordinatesPacket {
+
+		@Getter
+		@Setter
+		private UUID uuid;
+		@Getter
+		@Setter
+		private Boolean fluidSatellite;
+
+		public SetSatelliteUUID(int id) {
+			super(id);
+		}
+
+		@Override
+		public ModernPacket template() {
+			return new SetSatelliteUUID(getId());
+		}
+
+		@Override
+		public void processPacket(EntityPlayer player) {
+			LogisticsTileGenericPipe tile = this.getTile(player.world, LogisticsTileGenericPipe.class);
+			if (tile == null) return;
+			((PipeLogisticsChassi) tile.pipe).setSatelliteUUID(getUuid(), getFluidSatellite());
+		}
+
+		@Override
+		public void writeData(LPDataOutput output) {
+			super.writeData(output);
+			output.writeUUID(uuid);
+			output.writeBoolean(fluidSatellite);
+		}
+
+		@Override
+		public void readData(LPDataInput input) {
+			super.readData(input);
+			uuid = input.readUUID();
+			fluidSatellite = input.readBoolean();
 		}
 	}
 }

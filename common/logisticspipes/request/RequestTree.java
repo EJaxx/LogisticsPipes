@@ -179,20 +179,17 @@ public class RequestTree extends RequestTreeNode {
 	public static int request(ItemIdentifierStack item, IRequestItems requester, RequestLog log, boolean acceptPartial, boolean simulateOnly, boolean logMissing, boolean logUsed, EnumSet<ActiveRequestType> requestFlags, IAdditionalTargetInformation info) {
 		ItemResource req = new ItemResource(item, requester);
 		RequestTree tree = new RequestTree(req, null, requestFlags, info);
-		HashSet<FluidIdentifier> checkSpace = tree.collectCheckSpace();
-		List<IResource> checkSpaceResult = checkSpace.stream()
-				.map(fluid -> {
-					Pair<Integer, Integer> result = SimpleServiceLocator.logisticsFluidManager.getBestReply(fluid.makeFluidIdentifierStack(1), requester.getRouter(), new ArrayList<>());
-					return new Pair<>(fluid, result.getValue2());
-				})
-				.filter(o -> o.getValue2() <= 0)
-				.map(Pair::getValue1).map(o -> new FluidResource(o, 999999999, null))
-				.collect(Collectors.toList());
+		List<IResource> checkSpaceResult = new ArrayList<>();
+		for (FluidIdentifier fluid : tree.collectCheckSpace()) {
+			Pair<Integer, Integer> result = SimpleServiceLocator.logisticsFluidManager.getBestReply(fluid.makeFluidIdentifierStack(1), requester.getRouter(), new ArrayList<>());
+			if (result.getValue2() <= 0)
+				checkSpaceResult.add(new FluidResource(fluid, -1, null));
+		}
 		if (!checkSpaceResult.isEmpty()) {
 			log.handleMissingItems(checkSpaceResult);
 			//tree.setMissingSpace(fluidStack);
 			//player.sendMessage(new TextComponentString("Not found intermediate space for fluid: " + fluidStack.makeFluidStack().getUnlocalizedName()));
-			return tree.getPromiseAmount();
+			return 0;
 		}
 		if (!simulateOnly && (tree.isDone() || ((tree.getPromiseAmount() > 0) && acceptPartial))) {
 			LinkedLogisticsOrderList list = tree.fullFillAll();

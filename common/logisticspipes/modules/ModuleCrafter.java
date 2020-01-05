@@ -93,6 +93,7 @@ import logisticspipes.pipefxhandlers.Particles;
 import logisticspipes.pipes.PipeFluidSatellite;
 import logisticspipes.pipes.PipeItemsCraftingLogistics;
 import logisticspipes.pipes.PipeItemsSatelliteLogistics;
+import logisticspipes.pipes.PipeLogisticsChassi;
 import logisticspipes.pipes.PipeLogisticsChassi.ChassiTargetInformation;
 import logisticspipes.pipes.basic.CoreRoutedPipe;
 import logisticspipes.proxy.MainProxy;
@@ -598,7 +599,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 						if (liquidSatelliteUUID == null) {
 							templateList.addAll(addCraftingOne(toCraft, v.getRouter(), null));
 						} else {
-							PipeFluidSatellite fl = fluidSatellites.get(v.getSatellitePipeName() + ":fluid");
+							PipeFluidSatellite fl = fluidSatellites.get(v.getSatellitePipeName());
 							if (fl != null)
 								templateList.addAll(addCraftingOne(toCraft, v.getRouter(), fl.getRouter()));
 						}
@@ -942,7 +943,8 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 	private IRouter getSatelliteRouter(int x) {
 		if (x == -1) {
-			int satelliteRouterId = SimpleServiceLocator.routerManager.getIDforUUID(satelliteUUID);
+			UUID satelliteItemOverride = slot == ModulePositionType.SLOT ? ((PipeLogisticsChassi) getRouter().getPipe()).satelliteItemOverride : null;
+			int satelliteRouterId = SimpleServiceLocator.routerManager.getIDforUUID(satelliteItemOverride == null ? satelliteUUID : satelliteItemOverride);
 			return SimpleServiceLocator.routerManager.getRouter(satelliteRouterId);
 		} else {
 			int satelliteRouterId = SimpleServiceLocator.routerManager.getIDforUUID(advancedSatelliteUUIDArray[x]);
@@ -1311,7 +1313,8 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 	private IRouter getFluidSatelliteRouter(int x) {
 		if (x == -1) {
-			int satelliteRouterId = SimpleServiceLocator.routerManager.getIDforUUID(liquidSatelliteUUID);
+			UUID satelliteFluidOverride = slot == ModulePositionType.SLOT ? ((PipeLogisticsChassi) getRouter().getPipe()).satelliteFluidOverride : null;
+			int satelliteRouterId = SimpleServiceLocator.routerManager.getIDforUUID(satelliteFluidOverride == null ? liquidSatelliteUUID : satelliteFluidOverride);
 			return SimpleServiceLocator.routerManager.getRouter(satelliteRouterId);
 		} else {
 			int satelliteRouterId = SimpleServiceLocator.routerManager.getIDforUUID(liquidSatelliteUUIDArray[x]);

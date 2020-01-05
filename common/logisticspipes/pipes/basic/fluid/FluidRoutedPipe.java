@@ -63,11 +63,14 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 	}
 
 	public String vol(int v) {
+		if (v % 1000 == 0 && v > 1000000000) return String.format("%-5dkk B", v / 1000000000);
+		if (v % 1000 == 0 && v > 1000000) return String.format("%-5dk B", v / 1000000);
 		if (v % 1000 == 0) return String.format("%-5d B", v / 1000);
+		if (v % 144 == 0 && v > 9000) return String.format("%-5.1fk I", 1.0 * v / 1000 / 144);
 		if (v % 144 == 0) return String.format("%-5d I", v / 144);
 		if (v % 144 / 4 == 0) return String.format("%-5.2f I", 1.0 * v / 144);
-		if (v > 1000000000) return String.format("%-7.3f MB", 1.0 * v / 1000000000);
-		if (v > 1000000) return String.format("%-6.2f kB", 1.0 * v / 1000000);
+		if (v > 800000000) return String.format("%-7.3fkk B", 1.0 * v / 1000000000);
+		if (v > 800000) return String.format("%-6.2fk B", 1.0 * v / 1000000);
 		if (v > 1000) return String.format("%-5.1f B", 1.0 * v / 1000);
 		return String.format("%-5d mB", v);
 	}

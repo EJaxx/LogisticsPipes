@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -346,13 +347,23 @@ public class CrafterBarrier implements Runnable {
 		final static HashSet<CraftingTask> registry = new HashSet<>();
 		public CrafterBarrier queueManager;
 		public Boolean alive = true;
-		public final ModuleCrafter owner;
+		public ModuleCrafter owner = null;
 		ModuleCrafter activateRecipe;
 		private AtomicReference<CrafterBarrier> lock = new AtomicReference<>();
+		public final LinkedList<FluidIdentifierStack> extractQueueFluids = new LinkedList<>();
+		public final LinkedList<ItemIdentifierStack> extractQueueItems = new LinkedList<>();
 
 		public CraftingTask(ModuleCrafter moduleCrafter) {
 			owner = moduleCrafter;
 			registry.add(this);
+		}
+
+		public CraftingTask(NBTTagCompound nbttagcompound) {
+
+		}
+
+		public void writeToNBT(NBTTagCompound nbttagcompound) {
+
 		}
 
 		public void queueManager(CoreRoutedPipe pipe) {
@@ -457,6 +468,7 @@ public class CrafterBarrier implements Runnable {
 				owner.lock = null;
 			}
 		}
+
 	}
 
 	public static class InventorySlotAllocation {

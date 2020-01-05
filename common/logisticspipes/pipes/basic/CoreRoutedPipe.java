@@ -80,6 +80,7 @@ import logisticspipes.logisticspipes.ITrackStatistics;
 import logisticspipes.logisticspipes.PipeTransportLayer;
 import logisticspipes.logisticspipes.RouteLayer;
 import logisticspipes.logisticspipes.TransportLayer;
+import logisticspipes.modules.CrafterBarrier;
 import logisticspipes.modules.abstractmodules.LogisticsGuiModule;
 import logisticspipes.modules.abstractmodules.LogisticsModule;
 import logisticspipes.modules.abstractmodules.LogisticsModule.ModulePositionType;
@@ -189,6 +190,7 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 	private boolean isOpaqueClientSide = false;
 
 	private CacheHolder cacheHolder;
+	public CrafterBarrier.CraftingTask craftingTask;
 
 	public CoreRoutedPipe(Item item) {
 		this(new PipeTransportLogistics(true), item);
@@ -773,6 +775,7 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 				nbttagcompound.setBoolean("PipeSign_" + i, false);
 			}
 		}
+		if (craftingTask != null) craftingTask.writeToNBT(nbttagcompound);
 	}
 
 	@Override
@@ -815,6 +818,8 @@ public abstract class CoreRoutedPipe extends CoreUnroutedPipe
 				}
 			}
 		}
+		if (nbttagcompound.hasKey("craftingTask"))
+		craftingTask = new CrafterBarrier.CraftingTask(nbttagcompound);
 	}
 
 	@Override

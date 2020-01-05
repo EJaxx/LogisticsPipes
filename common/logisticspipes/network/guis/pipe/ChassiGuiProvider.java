@@ -1,5 +1,7 @@
 package logisticspipes.network.guis.pipe;
 
+import java.util.UUID;
+
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
@@ -14,9 +16,14 @@ import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
 import logisticspipes.pipes.upgrades.ModuleUpgradeManager;
 import logisticspipes.utils.StaticResolve;
 import logisticspipes.utils.gui.DummyContainer;
+import network.rs485.logisticspipes.util.LPDataInput;
+import network.rs485.logisticspipes.util.LPDataOutput;
 
 @StaticResolve
 public class ChassiGuiProvider extends BooleanModuleCoordinatesGuiProvider {
+
+	private UUID satelliteItemOverride;
+	private UUID satelliteFluidOverride;
 
 	public ChassiGuiProvider(int id) {
 		super(id);
@@ -28,6 +35,8 @@ public class ChassiGuiProvider extends BooleanModuleCoordinatesGuiProvider {
 		if (pipe == null || !(pipe.pipe instanceof PipeLogisticsChassi)) {
 			return null;
 		}
+		((PipeLogisticsChassi) pipe.pipe).satelliteItemOverride = satelliteItemOverride;
+		((PipeLogisticsChassi) pipe.pipe).satelliteFluidOverride = satelliteFluidOverride;
 		return new GuiChassiPipe(player, (PipeLogisticsChassi) pipe.pipe, isFlag());
 	}
 
@@ -40,30 +49,14 @@ public class ChassiGuiProvider extends BooleanModuleCoordinatesGuiProvider {
 		final PipeLogisticsChassi _chassiPipe = (PipeLogisticsChassi) pipe.pipe;
 		IInventory _moduleInventory = _chassiPipe.getModuleInventory();
 		DummyContainer dummy = new DummyContainer(player.inventory, _moduleInventory);
-		if (_chassiPipe.getChassiSize() < 5) {
-			dummy.addNormalSlotsForPlayerInventory(18, 97);
-		} else {
-			dummy.addNormalSlotsForPlayerInventory(18, 174);
-		}
-		if (_chassiPipe.getChassiSize() > 0) {
-			dummy.addModuleSlot(0, _moduleInventory, 19, 9, _chassiPipe);
-		}
-		if (_chassiPipe.getChassiSize() > 1) {
-			dummy.addModuleSlot(1, _moduleInventory, 19, 29, _chassiPipe);
-		}
-		if (_chassiPipe.getChassiSize() > 2) {
-			dummy.addModuleSlot(2, _moduleInventory, 19, 49, _chassiPipe);
-		}
-		if (_chassiPipe.getChassiSize() > 3) {
-			dummy.addModuleSlot(3, _moduleInventory, 19, 69, _chassiPipe);
-		}
-		if (_chassiPipe.getChassiSize() > 4) {
-			dummy.addModuleSlot(4, _moduleInventory, 19, 89, _chassiPipe);
-			dummy.addModuleSlot(5, _moduleInventory, 19, 109, _chassiPipe);
-			dummy.addModuleSlot(6, _moduleInventory, 19, 129, _chassiPipe);
-			dummy.addModuleSlot(7, _moduleInventory, 19, 149, _chassiPipe);
+		int normalSlotsY = Math.max(97, 9 + _chassiPipe.getChassiSize() * 20 + 12 * 2);
+		dummy.addNormalSlotsForPlayerInventory(18, normalSlotsY);
+		for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
+			dummy.addModuleSlot(i, _moduleInventory, 19, 9 + i * 20, _chassiPipe);
 		}
 
+		satelliteItemOverride = _chassiPipe.satelliteItemOverride;
+		satelliteFluidOverride = _chassiPipe.satelliteFluidOverride;
 		if (_chassiPipe.getUpgradeManager().hasUpgradeModuleUpgrade()) {
 			for (int i = 0; i < _chassiPipe.getChassiSize(); i++) {
 				final int fI = i;
@@ -92,5 +85,19 @@ public class ChassiGuiProvider extends BooleanModuleCoordinatesGuiProvider {
 	@Override
 	public GuiProvider template() {
 		return new ChassiGuiProvider(getId());
+	}
+
+	@Override
+	public void writeData(LPDataOutput output) {
+		super.writeData(output);
+		output.writeUUID(satelliteItemOverride);
+		output.writeUUID(satelliteFluidOverride);
+	}
+
+	@Override
+	public void readData(LPDataInput input) {
+		super.readData(input);
+		satelliteItemOverride = input.readUUID();
+		satelliteFluidOverride = input.readUUID();
 	}
 }
