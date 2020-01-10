@@ -63,16 +63,17 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 	}
 
 	public String vol(int v) {
-		if (v % 1000 == 0 && v > 1000000000) return String.format("%-5dkk B", v / 1000000000);
-		if (v % 1000 == 0 && v > 1000000) return String.format("%-5dk B", v / 1000000);
-		if (v % 1000 == 0) return String.format("%-5d B", v / 1000);
-		if (v % 144 == 0 && v > 9000) return String.format("%-5.1fk I", 1.0 * v / 1000 / 144);
-		if (v % 144 == 0) return String.format("%-5d I", v / 144);
-		if (v % 144 / 4 == 0) return String.format("%-5.2f I", 1.0 * v / 144);
-		if (v > 800000000) return String.format("%-7.3fkk B", 1.0 * v / 1000000000);
-		if (v > 800000) return String.format("%-6.2fk B", 1.0 * v / 1000000);
-		if (v > 1000) return String.format("%-5.1f B", 1.0 * v / 1000);
-		return String.format("%-5d mB", v);
+		String al = "%";// "%-5";
+		if (v % 1000 == 0 && v > 1000000000) return String.format(al + "dkk B", v / 1000000000);
+		if (v % 1000 == 0 && v > 1000000) return String.format(al + "dk B", v / 1000000);
+		if (v % 1000 == 0) return String.format(al + "d B", v / 1000);
+		if (v % 144 == 0 && v > 9000) return String.format(al + ".1fk I", 1.0 * v / 1000 / 144);
+		if (v % 144 == 0) return String.format(al + "d I", v / 144);
+		if (v % 36 == 0) return String.format(al + ".2f I", 1.0 * v / 144);
+		if (v > 800000000) return String.format(al + ".3fkk B", 1.0 * v / 1000000000);
+		if (v > 800000) return String.format(al + ".2fk B", 1.0 * v / 1000000);
+		if (v > 1000) return String.format(al + ".1f B", 1.0 * v / 1000);
+		return String.format(al + "d mB", v);
 	}
 
 	@Override
@@ -92,7 +93,7 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 					probeInfo.horizontal().item(
 							key.makeNormalStack(),
 							new ItemStyle().width(16).height(8))
-							.text("x" + vol(ls.get(key))).text(names.get(key)));
+							.text("x" + vol(ls.get(key)) + ", ").text(names.get(key)));
 		}
 	}
 
@@ -397,5 +398,11 @@ public abstract class FluidRoutedPipe extends CoreRoutedPipe {
 	@Override
 	public LogisticsOrderManager<?, ?> getOrderManager() {
 		return getFluidOrderManager();
+	}
+
+	@Override
+	public void clearOrders() {
+		super.clearOrders();
+		_orderFluidManager.clearOrders();
 	}
 }

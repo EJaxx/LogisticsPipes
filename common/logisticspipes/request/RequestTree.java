@@ -42,6 +42,7 @@ public class RequestTree extends RequestTreeNode {
 		LogUsed
 	}
 
+	public static final HashSet<RequestTree> forest = new HashSet<>();
 	public static final EnumSet<ActiveRequestType> defaultRequestFlags = EnumSet.of(ActiveRequestType.Provide, ActiveRequestType.Craft);
 	private HashMap<FinalPair<IProvide, ItemIdentifier>, Integer> _promisetotals;
 
@@ -193,6 +194,7 @@ public class RequestTree extends RequestTreeNode {
 		}
 		if (!simulateOnly && (tree.isDone() || ((tree.getPromiseAmount() > 0) && acceptPartial))) {
 			LinkedLogisticsOrderList list = tree.fullFillAll();
+			forest.add(tree);
 			if (log != null) {
 				log.handleSucessfullRequestOf(req.copyForDisplayWith(item.getStackSize()), list);
 			}

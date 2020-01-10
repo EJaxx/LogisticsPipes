@@ -137,6 +137,7 @@ public abstract class LogisticsOrderManager<T extends LogisticsOrder, I> impleme
 	public void sendFailed() {
 		if (!_orders.isEmpty()) {
 			LogisticsOrder order = _orders.removeFirst();
+			System.err.println("sendFailed() " + order.getTargetType() + ", x" + order.getAmount());
 			order.setFinished(true);
 			order.setInProgress(false);
 		}

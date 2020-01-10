@@ -571,6 +571,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 			return templateList;
 
 		templateList = new ArrayList<>();
+		System.err.println("New Crafting template for: " + toCraft.getDisplayItem());
 
 		if (getUpgradeManager().isAdvancedSatelliteCrafter() || getSatelliteRouter(-1) == null) {
 			List<ICraftingTemplate> res = addCraftingOne(toCraft, null, getFluidSatelliteRouter(-1));
@@ -588,7 +589,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 						.forEach(it -> itemSatellites.put(it.getSatellitePipeName(), it));
 
 				Map<String, PipeFluidSatellite> fluidSatellites = new HashMap<>();
-				if (liquidSatelliteUUID != null) {
+				if (getFluidSatelliteRouter(-1) != null) {
 					PipeFluidSatellite.AllSatellites.stream().filter(Objects::nonNull).filter(it -> it.getRouter() != null)
 							.filter(it -> routingTable.size() > it.getRouterId() && routingTable.get(it.getRouterId()) != null && !routingTable.get(it.getRouterId()).isEmpty())
 							.forEach(it -> fluidSatellites.put(it.getSatellitePipeName(), it));
@@ -596,7 +597,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 
 				itemSatellites.forEach((k, v) -> {
 					if (k.startsWith(mySatellitePrefix)) {
-						if (liquidSatelliteUUID == null) {
+						if (getFluidSatelliteRouter(-1) == null) {
 							templateList.addAll(addCraftingOne(toCraft, v.getRouter(), null));
 						} else {
 							PipeFluidSatellite fl = fluidSatellites.get(v.getSatellitePipeName());
@@ -1968,7 +1969,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 		inputCollection
 				.forEach(o -> {
 					if (i1.get() < 9)
-						_dummyInventory.setInventorySlotContents(i1.getAndAdd(1), stripTags(o));
+						_dummyInventory.setInventorySlotContents(i1.getAndAdd(1), stripTags(o, "chance"));
 				});
 		IntStream.range(i1.get(), _dummyInventory.getSizeInventory())
 				.forEach(i -> _dummyInventory.setInventorySlotContents(i, ItemStack.EMPTY));
@@ -1995,7 +1996,7 @@ public class ModuleCrafter extends LogisticsGuiModule implements ICraftItems, IH
 				.filter(o -> !o.getValue1())
 				//.filter(o -> n.getAndDecrement() == 0)
 				.filter(o -> recipeResult == null || recipeResult instanceof ItemStack && ((ItemStack) recipeResult).getItem().equals(o.getValue2().getItem()))
-				.findFirst().ifPresent(o -> _dummyInventory.setInventorySlotContents(9, stripTags(o.getValue2())));
+				.findFirst().ifPresent(o -> _dummyInventory.setInventorySlotContents(9, stripTags(o.getValue2(), "chance")));
 
 		List<Pair<Boolean, FluidStack>> fluidCollection = fluids.entrySet().stream()
 				.sorted(Comparator.comparingInt(Map.Entry::getKey)).map(Map.Entry::getValue)

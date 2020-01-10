@@ -483,7 +483,7 @@ public class PipeTransportLogistics {
 			if (arrivingItem.getInfo().nextDestination instanceof IRequestFluid && getRoutedPipe().getSourceID() == arrivingItem.getDestination()) {
 				new WorldCoordinatesWrapper(tile).allNeighborTileEntities()
 						.filter(NeighborTileEntity::isLogisticsPipe)
-						.map(adjacent -> (CoreRoutedPipe) (((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe))
+						.map(adjacent -> ((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe)
 						.filter(pipe -> pipe instanceof PipeFluidProvider)
 						.findFirst()
 						.ifPresent(coreRoutedPipe -> {
@@ -516,14 +516,14 @@ public class PipeTransportLogistics {
 			IInventoryUtil util = SimpleServiceLocator.inventoryUtilFactory.getInventoryUtil(tile, dir.getOpposite());
 			if (arrivingItem.getInfo().nextDestination != null && arrivingItem.getDestination() == getRoutedPipe().getRouterId()) {
 				if (getPipe() instanceof PipeLogisticsChassi)
-					getRoutedPipe().getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack().clone(), arrivingItem.getInfo().nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.getInfo().nextDestInfo);
+					getRoutedPipe().getItemOrderManager().addOrJoinOrder(arrivingItem.getItemIdentifierStack().clone(), arrivingItem.getInfo().nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.getInfo().nextDestInfo);
 				else
 					new WorldCoordinatesWrapper(tile).allNeighborTileEntities()
 							.filter(NeighborTileEntity::isLogisticsPipe)
 							.filter(adjacent -> ((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe instanceof PipeItemsProviderLogistics)
 							.map(adjacent -> (CoreRoutedPipe) (((LogisticsTileGenericPipe) adjacent.getTileEntity()).pipe))
 							.findFirst()
-							.ifPresent(coreRoutedPipe -> coreRoutedPipe.getItemOrderManager().addOrder(arrivingItem.getItemIdentifierStack().clone(), arrivingItem.getInfo().nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.getInfo().nextDestInfo));
+							.ifPresent(coreRoutedPipe -> coreRoutedPipe.getItemOrderManager().addOrJoinOrder(arrivingItem.getItemIdentifierStack().clone(), arrivingItem.getInfo().nextDestination, IOrderInfoProvider.ResourceType.PROVIDER, arrivingItem.getInfo().nextDestInfo));
 			}
 			if (util != null && isRouted) {
 				getRoutedPipe().getCacheHolder().trigger(CacheTypes.Inventory);

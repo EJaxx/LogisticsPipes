@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 
 import net.minecraftforge.fluids.FluidStack;
 
@@ -178,13 +179,13 @@ public class JEIPluginLoader implements IModPlugin, Runnable {
 					return fmtList((List) _stack, "/");
 				}
 				if (_stack instanceof ItemStack) {
-					ItemIdentifierStack stack = ItemIdentifierStack.getFromStack(CrafterBarrier.stripTags((ItemStack) _stack));
+					ItemIdentifierStack stack = ItemIdentifierStack.getFromStack(CrafterBarrier.stripTags((ItemStack) _stack, "chance"));
 					ItemIdentifier it = stack.getItem();
 					if (!itemIds.contains(it)) {
 						itemIds.add(it);
 						out.add("ItemId " + itemIds.indexOf(it) + " " + CrafterBarrier.stackToString(it.makeNormalStack(1)) + " " + it + "\n");
 					}
-					FinalNBTTagCompound tag = stack.getItem().tag;
+					NBTTagCompound tag = ((ItemStack) _stack).getTagCompound();
 					String ch = tag != null && tag.hasKey("chance")
 							? "x" + tag.getInteger("chance") / 100
 							: "";

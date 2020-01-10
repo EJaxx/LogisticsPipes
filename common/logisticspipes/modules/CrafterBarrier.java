@@ -268,7 +268,7 @@ public class CrafterBarrier implements Runnable {
 
 		int orderSum() {
 			return orders.keySet().stream()
-					.filter(o -> o.getType() == IOrderInfoProvider.ResourceType.PROVIDER)
+					.filter(o -> !o.isFinished() && o.getType() == IOrderInfoProvider.ResourceType.PROVIDER)
 					.mapToInt(LogisticsOrder::getAmount).sum();
 		}
 
@@ -448,7 +448,7 @@ public class CrafterBarrier implements Runnable {
 							sumCycles.addAndGet(maxCycles);
 							System.out.println("increments +" + maxCycles + "/" + sumCycles.get() + ", " + owner.getCraftedItem());
 							lines.forEach(v -> v.extend(maxCycles));
-							owner.extractorBarrier.addAndGet(maxCycles); // Fluids ??
+							owner.extractorBarrier.addAndGet(maxCycles);
 							System.out.println("+extractorBarrier " + owner + ", " + owner.hashCode() + " += " + maxCycles * owner.getCraftedItem().getStackSize());
 						}
 					});
@@ -551,7 +551,7 @@ public class CrafterBarrier implements Runnable {
 
 		public void update() {
 			if (age-- > 0) return;
-			age = 5 + rng.nextInt(3);
+			age = 5 + rng.nextInt(5);
 			if (!posW.isBlockLoaded(posB)) return; // just in case, skip unloaded
 			// TileEntity te = new WorldCoordinatesWrapper(this.posW, this.posB).getTileEntity();
 			TileEntity te = posW.getTileEntity(posB);
